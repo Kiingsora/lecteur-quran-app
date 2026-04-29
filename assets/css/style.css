@@ -195,6 +195,17 @@ a:hover { color: var(--color-gold-light); }
   overflow: hidden;
 }
 
+/* Pont invisible pour garder le hover actif lorsqu'on déplace la souris vers le menu */
+.profile-dropdown::before {
+  content: '';
+  position: absolute;
+  top: calc(-1 * var(--space-sm));
+  left: 0;
+  right: 0;
+  height: var(--space-sm);
+  background: transparent;
+}
+
 .user-profile:hover .profile-dropdown {
   display: flex;
 }

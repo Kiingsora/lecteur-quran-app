@@ -1,102 +1,8 @@
-<!DOCTYPE html>
-<html lang="fr" dir="ltr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Qira'ah - Correction de récitation</title>
-
-    <!-- Security headers (meta fallback si .htaccess non actif) -->
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <meta http-equiv="X-Content-Type-Options" content="nosniff">
-    <meta name="referrer" content="strict-origin-when-cross-origin">
-    <meta http-equiv="Content-Security-Policy"
-          content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'sha256-ieoeWczDHkReVBsRBqaal5AFMlBtNjMzgwKvLqi/tSU='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; object-src 'none'; connect-src 'self';">
-
-    <link rel="stylesheet" href="assets/css/variables.css">
-    <link rel="stylesheet" href="assets/css/style.css">
-</head>
-<body>
-
-<!-- ============================================================
-     MODAL DE CONNEXION (affiché au démarrage)
-     ============================================================ -->
-<div class="modal-overlay" id="loginModal">
-    <div class="modal">
-        <div class="modal__logo">
-            <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
-                <circle cx="26" cy="26" r="24" stroke="#D4A847" stroke-width="1.5"/>
-                <circle cx="26" cy="26" r="16" stroke="rgba(212,168,71,0.3)" stroke-width="1"/>
-                <path d="M26 10 L26 42 M18 18 Q26 15 34 18 M18 26 Q26 23 34 26 M18 34 Q26 31 34 34"
-                      stroke="#D4A847" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/>
-            </svg>
-        </div>
-        <h2 class="modal__title">Qira'ah</h2>
-        <p class="modal__subtitle">Plateforme de correction de récitation du Coran</p>
-
-        <div class="form-group">
-            <label class="form-label" for="loginUsername">Nom d'utilisateur</label>
-            <input type="text" id="loginUsername" class="form-input" placeholder="ex : AbdAllah" maxlength="50" autocomplete="off">
-        </div>
-
-        <p class="form-label" style="margin-bottom: var(--space-sm);">Je suis :</p>
-        <div class="role-selector">
-            <button class="role-btn selected" data-role="learner" id="roleLearner">
-                <div class="role-btn__icon">📖</div>
-                <div class="role-btn__label">Apprenant</div>
-            </button>
-            <button class="role-btn" data-role="reviewer" id="roleReviewer">
-                <div class="role-btn__icon">✍️</div>
-                <div class="role-btn__label">Relecteur</div>
-            </button>
-        </div>
-
-        <button class="btn btn--primary" id="btnLogin" style="width:100%; margin-top: var(--space-sm);">Entrer</button>
-
-        <div class="divider-ornament" style="margin-top: var(--space-lg);">بسم الله</div>
-    </div>
-</div>
-
-<!-- ============================================================
-     HEADER
-     ============================================================ -->
-<header class="header">
-    <div class="header__logo">
-        <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
-            <circle cx="15" cy="15" r="13" stroke="#D4A847" stroke-width="1.2"/>
-            <path d="M15 5 L15 25 M9 10 Q15 8 21 10 M9 15 Q15 13 21 15 M9 20 Q15 18 21 20"
-                  stroke="#D4A847" stroke-width="1" stroke-linecap="round" opacity="0.7"/>
-        </svg>
-        <h1 class="header__title">Qira'ah</h1>
-        <span class="header__subtitle">Correction de récitation</span>
-    </div>
-    <nav class="header__nav">
-        <!-- Mode switcher -->
-        <div class="mode-switcher" id="modeSwitcher" style="display:none;">
-            <button class="mode-switcher__btn mode-switcher__btn--active" data-mode="dashboard" id="btnModeDashboard">
-                Tableau de bord
-            </button>
-            <button class="mode-switcher__btn" data-mode="learner" id="btnModeLearner">
-                Enregistrement
-            </button>
-            <button class="mode-switcher__btn" data-mode="reviewer" id="btnModeReviewer">
-                Correction
-            </button>
-        </div>
-
-        <!-- Infos user (dropdown) -->
-        <div class="user-profile" id="userInfo" style="display:none;">
-            <div class="user-profile__avatar" id="userAvatar">?</div>
-            <span id="userDisplayName"></span>
-            
-            <div class="profile-dropdown" id="profileDropdown">
-                <a href="#" class="profile-dropdown__item">👤 Mon Profil</a>
-                <a href="#" class="profile-dropdown__item">⚙️ Paramètres</a>
-                <a href="abonnement.php" class="profile-dropdown__item">⭐ Abonnement</a>
-                <button class="profile-dropdown__item profile-dropdown__item--danger" id="btnLogout" style="width: 100%; text-align: left;">🚪 Déconnexion</button>
-            </div>
-        </div>
-    </nav>
-</header>
+<?php
+$pageTitle = "Correction de récitation";
+require_once __DIR__ . '/includes/views/header.php';
+require_once __DIR__ . '/includes/views/modals/login.php';
+?>
 
 <!-- ============================================================
      MAIN APP LAYOUT
@@ -567,10 +473,7 @@
     </aside>
 </div>
 
-<!-- Toast container -->
-<div class="toast-container" id="toastContainer"></div>
-
-<script src="assets/js/core/app.js" type="module"></script>
-<!-- quran.js et surahs-data.js sont importés dynamiquement depuis app.js -->
-</body>
-</html>
+<?php
+$useAppJs = true;
+require_once __DIR__ . '/includes/views/footer.php';
+?>

@@ -3,15 +3,15 @@
  * Coordinates all modules, manages state, login, dashboard, mode switching
  */
 
-import { AudioRecorder }  from './audio-recorder.js';
-import { AudioPlayer }    from './audio-player.js';
-import { Waveform }       from './waveform.js';
-import { SilenceDetector} from './silence-detector.js';
-import { PinManager }     from './pin-manager.js';
-import { SegmentManager } from './segment-manager.js';
-import { Reviewer }       from './reviewer.js';
-import { QuranDisplay }   from './quran.js';
-import { SURAHS, getSurah } from './surahs-data.js';
+import { AudioRecorder }  from '../audio/audio-recorder.js';
+import { AudioPlayer }    from '../audio/audio-player.js';
+import { Waveform }       from '../audio/waveform.js';
+import { SilenceDetector} from '../audio/silence-detector.js';
+import { PinManager }     from '../managers/pin-manager.js';
+import { SegmentManager } from '../managers/segment-manager.js';
+import { Reviewer }       from '../ui/reviewer.js';
+import { QuranDisplay }   from '../ui/quran.js';
+import { SURAHS, getSurah } from '../data/surahs-data.js';
 
 // ─── Global state ───
 const state = {
@@ -118,7 +118,7 @@ async function initLogin() {
 
     // Vérifier session PHP existante
     try {
-        const session = await api.get('php/api/auth.php');
+        const session = await api.get('includes/api/auth.php');
         if (session.authenticated && session.user) {
             state.user      = session.user;
             state.csrfToken = session.csrf_token;
@@ -165,7 +165,7 @@ function _initLoginFallback(modal) {
 
         // Tentative de login via PHP session
         try {
-            const res = await api.post('php/api/auth.php', { username, role });
+            const res = await api.post('includes/api/auth.php', { username, role });
             state.user      = res.user;
             state.csrfToken = res.csrf_token;
         } catch(e) {
@@ -700,7 +700,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ── Logout (invalide session PHP côté serveur) ──
     $('btnLogout').addEventListener('click', async () => {
-        try { await api.del('php/api/auth.php'); } catch(_) { /* ignore */ }
+        try { await api.del('includes/api/auth.php'); } catch(_) { /* ignore */ }
         state.user = null;
         state.csrfToken = null;
         location.reload();

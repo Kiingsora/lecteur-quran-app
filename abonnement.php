@@ -1,14 +1,11 @@
-<!DOCTYPE html>
-<html lang="fr" dir="ltr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Qira'ah - Abonnements Professeur</title>
-    
-    <link rel="stylesheet" href="assets/css/variables.css">
-    <link rel="stylesheet" href="assets/css/style.css">
-    
-    <style>
+<?php
+$pageTitle = "Abonnements Professeur";
+$pageSubtitle = "Espace Professeur";
+$hideModeSwitcher = true;
+$activePage = "abonnement";
+require_once __DIR__ . '/includes/views/header.php';
+?>
+<style>
         .pricing-container {
             display: flex;
             flex-wrap: wrap;
@@ -142,37 +139,7 @@
             margin: 0 auto;
             line-height: 1.6;
         }
-    </style>
-</head>
-<body>
-
-<header class="header">
-    <div class="header__logo">
-        <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
-            <circle cx="15" cy="15" r="13" stroke="#D4A847" stroke-width="1.2"/>
-            <path d="M15 5 L15 25 M9 10 Q15 8 21 10 M9 15 Q15 13 21 15 M9 20 Q15 18 21 20"
-                  stroke="#D4A847" stroke-width="1" stroke-linecap="round" opacity="0.7"/>
-        </svg>
-        <h1 class="header__title">Qira'ah</h1>
-        <span class="header__subtitle">Espace Professeur</span>
-    </div>
-    <nav class="header__nav">
-        <a href="index.php" class="btn btn--ghost" style="text-decoration: none; font-size: var(--font-size-sm);">Retour au tableau de bord</a>
-
-        <!-- Infos user (dropdown) -->
-        <div class="user-profile" id="userInfo" style="display:none;">
-            <div class="user-profile__avatar" id="userAvatar">?</div>
-            <span id="userDisplayName"></span>
-            
-            <div class="profile-dropdown" id="profileDropdown">
-                <a href="#" class="profile-dropdown__item">👤 Mon Profil</a>
-                <a href="#" class="profile-dropdown__item">⚙️ Paramètres</a>
-                <a href="abonnement.php" class="profile-dropdown__item" style="color:var(--color-gold);">⭐ Abonnement</a>
-                <button class="profile-dropdown__item profile-dropdown__item--danger" id="btnLogout" style="width: 100%; text-align: left;">🚪 Déconnexion</button>
-            </div>
-        </div>
-    </nav>
-</header>
+</style>
 
 <div class="page-intro">
     <h1>Monétisez votre enseignement</h1>
@@ -278,28 +245,6 @@
     </div>
 </div>
 
-<script>
-    fetch('includes/api/auth.php')
-        .then(res => res.json())
-        .then(session => {
-            if (session.authenticated && session.user) {
-                document.getElementById('userInfo').style.display = '';
-                document.getElementById('userDisplayName').textContent = `${session.user.username} · ${session.user.role === 'learner' ? 'Apprenant' : 'Relecteur'}`;
-                document.getElementById('userAvatar').textContent = session.user.username.charAt(0).toUpperCase();
-            }
-        })
-        .catch(err => console.error("Session fetch failed", err));
-
-    // Gestion de la déconnexion
-    const btnLogout = document.getElementById('btnLogout');
-    if (btnLogout) {
-        btnLogout.addEventListener('click', () => {
-            fetch('includes/api/auth.php', { method: 'DELETE' })
-                .then(() => window.location.href = 'index.php')
-                .catch(() => window.location.href = 'index.php');
-        });
-    }
-</script>
-
-</body>
-</html>
+<?php
+require_once __DIR__ . '/includes/views/footer.php';
+?>

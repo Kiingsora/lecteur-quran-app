@@ -4,8 +4,8 @@
  * Sécurité : auth requise, rate limiting, cache fichier 24h, validation stricte
  */
 
-require_once __DIR__ . '/../../php/config.php';
-require_once __DIR__ . '/../../php/session.php';
+require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../core/session.php';
 
 // 1. Headers sécurité
 setSecurityHeaders();

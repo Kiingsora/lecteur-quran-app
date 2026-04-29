@@ -8,8 +8,8 @@
  * SECURITY: session côté serveur, CSRF double-submit, rate limiting
  */
 
-require_once __DIR__ . '/../config.php';
-require_once __DIR__ . '/../session.php';
+require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../core/session.php';
 
 setSecurityHeaders();
 header('Content-Type: application/json; charset=utf-8');
