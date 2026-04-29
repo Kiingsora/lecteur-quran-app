@@ -715,145 +715,224 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ── Recording ──
     recorder = new AudioRecorder($('vuMeterFill'));
 
-    $('btnRecord').addEventListener('click', async () => {
+    // ── Recording (Push To Talk / Legacy) ──
+    const btnPtt = $('btnPttRecord');
+    let isPttRecording = false;
+
+    const startPttRecord = async () => {
+        if (isPttRecording) return;
+        try {
+            await recorder.start();
+            isPttRecording = true;
+            if (btnPtt) btnPtt.style.background = 'var(--color-danger)';
+            const pttStatus = $('pttStatus');
+            if (pttStatus) {
+                pttStatus.textContent = "● Enregistrement en cours...";
+                pttStatus.style.color = "var(--color-danger)";
+            }
+        } catch(e) {
+            showToast('Accès au microphone refusé', 'error');
+            logError('audio', e);
+        }
+    };
+
+    const stopPttRecord = async () => {
+        if (!isPttRecording) return;
         if (recorder.isRecording()) {
             const { blob } = await recorder.stop();
-            $('btnRecord').classList.remove('recording');
-            $('iconRecordStart').style.display = '';
-            $('iconRecordStop').style.display  = 'none';
-            $('recordStatus').textContent      = 'Traitement...';
-            $('recordStatus').classList.remove('record-status--active');
+            isPttRecording = false;
+            if (btnPtt) btnPtt.style.background = '';
+            const pttStatus = $('pttStatus');
+            if (pttStatus) {
+                pttStatus.textContent = "Relâché. Bloc enregistré.";
+                pttStatus.style.color = "var(--color-gold)";
+            }
+            console.log("Recorded block:", blob);
+        }
+    };
 
+    if (btnPtt) {
+        btnPtt.addEventListener('mousedown', startPttRecord);
+        btnPtt.addEventListener('mouseup', stopPttRecord);
+        btnPtt.addEventListener('mouseleave', stopPttRecord);
+    }
+
+    // Espace pour enregistrer (Push-to-Talk)
+    window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+            e.preventDefault(); // Empêche le scroll
+            startPttRecord();
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+            stopPttRecord();
+        }
+    });
+
+    if ($('btnRecord')) {
+        $('btnRecord').addEventListener('click', async () => {
+            if (recorder.isRecording()) {
+                const { blob } = await recorder.stop();
+                $('btnRecord').classList.remove('recording');
+                $('iconRecordStart').style.display = '';
+                $('iconRecordStop').style.display  = 'none';
+                $('recordStatus').textContent      = 'Traitement...';
+                $('recordStatus').classList.remove('record-status--active');
+
+                try {
+                    const buf = await loadAudioBuffer(blob);
+                    await onAudioReady(buf, blob);
+                    $('recordStatus').textContent = 'Enregistrement terminé';
+                } catch(e) {
+                    showToast('Erreur lors du décodage audio', 'error');
+                    $('recordStatus').textContent = 'Erreur';
+                    logError('audio', e);
+                }
+            } else {
+                try {
+                    await recorder.start();
+                    $('btnRecord').classList.add('recording');
+                    $('iconRecordStart').style.display = 'none';
+                    $('iconRecordStop').style.display  = '';
+                    $('recordStatus').textContent      = '● Enregistrement en cours...';
+                    $('recordStatus').classList.add('record-status--active');
+                } catch(e) {
+                    showToast('Accès au microphone refusé', 'error');
+                    logError('audio', e);
+                }
+            }
+        });
+    }
+
+    // ── File import ──
+    if ($('fileInput')) {
+        $('fileInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            $('recordStatus').textContent = 'Chargement...';
             try {
-                const buf = await loadAudioBuffer(blob);
-                await onAudioReady(buf, blob);
-                $('recordStatus').textContent = 'Enregistrement terminé';
+                const buf = await loadAudioBuffer(file);
+                await onAudioReady(buf, file);
+                $('recordStatus').textContent = file.name;
             } catch(e) {
-                showToast('Erreur lors du décodage audio', 'error');
+                showToast('Format audio non supporté', 'error');
                 $('recordStatus').textContent = 'Erreur';
                 logError('audio', e);
             }
-        } else {
+        });
+    }
+
+    if ($('fileDrop')) {
+        $('fileDrop').addEventListener('dragover', e => { e.preventDefault(); $('fileDrop').classList.add('file-drop--active'); });
+        $('fileDrop').addEventListener('dragleave', ()  => $('fileDrop').classList.remove('file-drop--active'));
+        $('fileDrop').addEventListener('drop', async e => {
+            e.preventDefault();
+            $('fileDrop').classList.remove('file-drop--active');
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
             try {
-                await recorder.start();
-                $('btnRecord').classList.add('recording');
-                $('iconRecordStart').style.display = 'none';
-                $('iconRecordStop').style.display  = '';
-                $('recordStatus').textContent      = '● Enregistrement en cours...';
-                $('recordStatus').classList.add('record-status--active');
-            } catch(e) {
-                showToast('Accès au microphone refusé', 'error');
-                logError('audio', e);
-            }
-        }
-    });
-
-    // ── File import ──
-    $('fileInput').addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        $('recordStatus').textContent = 'Chargement...';
-        try {
-            const buf = await loadAudioBuffer(file);
-            await onAudioReady(buf, file);
-            $('recordStatus').textContent = file.name;
-        } catch(e) {
-            showToast('Format audio non supporté', 'error');
-            $('recordStatus').textContent = 'Erreur';
-            logError('audio', e);
-        }
-    });
-
-    $('fileDrop').addEventListener('dragover', e => { e.preventDefault(); $('fileDrop').classList.add('file-drop--active'); });
-    $('fileDrop').addEventListener('dragleave', ()  => $('fileDrop').classList.remove('file-drop--active'));
-    $('fileDrop').addEventListener('drop', async e => {
-        e.preventDefault();
-        $('fileDrop').classList.remove('file-drop--active');
-        const file = e.dataTransfer.files[0];
-        if (!file) return;
-        try {
-            const buf = await loadAudioBuffer(file);
-            await onAudioReady(buf, file);
-            $('recordStatus').textContent = file.name;
-        } catch(err) { showToast('Format audio non supporté', 'error'); logError('drop', err); }
-    });
+                const buf = await loadAudioBuffer(file);
+                await onAudioReady(buf, file);
+                $('recordStatus').textContent = file.name;
+            } catch(err) { showToast('Format audio non supporté', 'error'); logError('drop', err); }
+        });
+    }
 
     // ── Learner transport ──
-    $('btnPlayPause').addEventListener('click', () =>
-        togglePlay(player, $('iconPlay'), $('iconPause'), 'timeDisplay', waveform, $('segmentRuler'))
-    );
-    $('btnStop').addEventListener('click', () =>
-        stopPlayer(player, $('iconPlay'), $('iconPause'), 'timeDisplay', waveform)
-    );
-    $('btnPrevSegment').addEventListener('click', () => {
-        if (!player || !segmentManager) return;
-        const seg = segmentManager.getPrevSegment(player.getCurrentTime());
-        if (seg) { player.seekTo(seg.start); waveform.drawCursor(seg.start / state.duration); }
-    });
-    $('btnNextSegment').addEventListener('click', () => {
-        if (!player || !segmentManager) return;
-        const seg = segmentManager.getNextSegment(player.getCurrentTime());
-        if (seg) { player.seekTo(seg.start); waveform.drawCursor(seg.start / state.duration); }
-    });
+    if ($('btnPlayPause')) {
+        $('btnPlayPause').addEventListener('click', () =>
+            togglePlay(player, $('iconPlay'), $('iconPause'), 'timeDisplay', waveform, $('segmentRuler'))
+        );
+    }
+    if ($('btnStop')) {
+        $('btnStop').addEventListener('click', () =>
+            stopPlayer(player, $('iconPlay'), $('iconPause'), 'timeDisplay', waveform)
+        );
+    }
+    if ($('btnPrevSegment')) {
+        $('btnPrevSegment').addEventListener('click', () => {
+            if (!player || !segmentManager) return;
+            const seg = segmentManager.getPrevSegment(player.getCurrentTime());
+            if (seg) { player.seekTo(seg.start); waveform.drawCursor(seg.start / state.duration); }
+        });
+    }
+    if ($('btnNextSegment')) {
+        $('btnNextSegment').addEventListener('click', () => {
+            if (!player || !segmentManager) return;
+            const seg = segmentManager.getNextSegment(player.getCurrentTime());
+            if (seg) { player.seekTo(seg.start); waveform.drawCursor(seg.start / state.duration); }
+        });
+    }
 
     // ── Waveform click → seek ──
-    $('waveformContainer').addEventListener('click', e => {
-        if (!player || !state.duration) return;
-        const rect  = $('waveformContainer').getBoundingClientRect();
-        const ratio = (e.clientX - rect.left) / rect.width;
-        const t     = ratio * state.duration;
-        player.seekTo(t);
-        updateTimeDisplay(t, state.duration, 'timeDisplay');
-        waveform.drawCursor(ratio);
-    });
-
-    // ── Double-click on waveform → add pin ──
-    $('waveformContainer').addEventListener('dblclick', e => {
-        if (!pinManager || !state.duration) return;
-        const rect  = $('waveformContainer').getBoundingClientRect();
-        const ratio = (e.clientX - rect.left) / rect.width;
-        const t     = ratio * state.duration;
-        pinManager.addPin(t, null, false);
-        _refreshWaveformAndUI();
-        showToast(`Pin ajouté à ${formatTime(t)}`);
-    });
-
-    // ── Pin list interactions ──
-    $('pinList').addEventListener('click', e => {
-        const del = e.target.closest('[data-pin-id].pin-item__delete, button[data-pin-id]');
-        if (del && del.classList.contains('pin-item__delete')) {
-            pinManager.removePin(del.dataset.pinId);
-            _refreshWaveformAndUI();
-            return;
-        }
-        const item = e.target.closest('.pin-item');
-        if (item && player) {
-            const t = parseFloat(item.dataset.time);
+    if ($('waveformContainer')) {
+        $('waveformContainer').addEventListener('click', e => {
+            if (!player || !state.duration) return;
+            const rect  = $('waveformContainer').getBoundingClientRect();
+            const ratio = (e.clientX - rect.left) / rect.width;
+            const t     = ratio * state.duration;
             player.seekTo(t);
             updateTimeDisplay(t, state.duration, 'timeDisplay');
-            waveform.drawCursor(t / state.duration);
-        }
-    });
+            waveform.drawCursor(ratio);
+        });
+
+        // ── Double-click on waveform → add pin ──
+        $('waveformContainer').addEventListener('dblclick', e => {
+            if (!pinManager || !state.duration) return;
+            const rect  = $('waveformContainer').getBoundingClientRect();
+            const ratio = (e.clientX - rect.left) / rect.width;
+            const t     = ratio * state.duration;
+            pinManager.addPin(t, null, false);
+            _refreshWaveformAndUI();
+            showToast(`Pin ajouté à ${formatTime(t)}`);
+        });
+    }
+
+    // ── Pin list interactions ──
+    if ($('pinList')) {
+        $('pinList').addEventListener('click', e => {
+            const del = e.target.closest('[data-pin-id].pin-item__delete, button[data-pin-id]');
+            if (del && del.classList.contains('pin-item__delete')) {
+                pinManager.removePin(del.dataset.pinId);
+                _refreshWaveformAndUI();
+                return;
+            }
+            const item = e.target.closest('.pin-item');
+            if (item && player) {
+                const t = parseFloat(item.dataset.time);
+                player.seekTo(t);
+                updateTimeDisplay(t, state.duration, 'timeDisplay');
+                waveform.drawCursor(t / state.duration);
+            }
+        });
+    }
 
     // ── Segment list click ──
-    $('segmentList').addEventListener('click', e => {
-        const item = e.target.closest('.segment-item');
-        if (item && player) {
-            const start = parseFloat(item.dataset.start);
-            player.seekTo(start);
-            updateTimeDisplay(start, state.duration, 'timeDisplay');
-            waveform.drawCursor(start / state.duration);
-        }
-    });
+    if ($('segmentList')) {
+        $('segmentList').addEventListener('click', e => {
+            const item = e.target.closest('.segment-item');
+            if (item && player) {
+                const start = parseFloat(item.dataset.start);
+                player.seekTo(start);
+                updateTimeDisplay(start, state.duration, 'timeDisplay');
+                waveform.drawCursor(start / state.duration);
+            }
+        });
+    }
 
     // ── Add pin button ──
-    $('btnAddPin').addEventListener('click', () => {
-        if (!pinManager || !player) return;
-        const t = player.getCurrentTime();
-        pinManager.addPin(t, null, false);
-        _refreshWaveformAndUI();
-        showToast(`Pin ajouté à ${formatTime(t)}`);
-    });
+    if ($('btnAddPin')) {
+        $('btnAddPin').addEventListener('click', () => {
+            if (!pinManager || !player) return;
+            const t = player.getCurrentTime();
+            pinManager.addPin(t, null, false);
+            _refreshWaveformAndUI();
+            showToast(`Pin ajouté à ${formatTime(t)}`);
+        });
+    }
 
     // ── Silence re-detection ──
     const redetect = () => {
@@ -867,8 +946,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         silences.forEach(t => pinManager.addPin(t, null, true));
         _refreshWaveformAndUI();
     };
-    $('silenceThreshold').addEventListener('input', redetect);
-    $('btnDetectSilences').addEventListener('click', redetect);
+    if ($('silenceThreshold')) {
+        $('silenceThreshold').addEventListener('input', redetect);
+    }
+    if ($('btnDetectSilences')) {
+        $('btnDetectSilences').addEventListener('click', redetect);
+    }
 
     // ── Speed sliders ──
     function _applySpeed(slider, labelId, playerInstance) {
@@ -892,15 +975,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Init les gradients au démarrage (valeur = 1)
-    _applySpeed($('speedSlider'),         'speedLabel',         null);
-    _applySpeed($('reviewerSpeedSlider'), 'reviewerSpeedLabel', null);
-
-    $('speedSlider').addEventListener('input', () =>
-        _applySpeed($('speedSlider'), 'speedLabel', player)
-    );
-    $('reviewerSpeedSlider').addEventListener('input', () =>
-        _applySpeed($('reviewerSpeedSlider'), 'reviewerSpeedLabel', reviewerPlayer)
-    );
+    if ($('speedSlider')) {
+        _applySpeed($('speedSlider'), 'speedLabel', null);
+        $('speedSlider').addEventListener('input', () =>
+            _applySpeed($('speedSlider'), 'speedLabel', player)
+        );
+    }
+    if ($('reviewerSpeedSlider')) {
+        _applySpeed($('reviewerSpeedSlider'), 'reviewerSpeedLabel', null);
+        $('reviewerSpeedSlider').addEventListener('input', () =>
+            _applySpeed($('reviewerSpeedSlider'), 'reviewerSpeedLabel', reviewerPlayer)
+        );
+    }
 
     // ── Initialiser le dropdown des sourates ──
     (function _initSurahSelect() {
@@ -964,9 +1050,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('btnQuranNextPage').addEventListener('click', async () => {
         await quranDisplay.nextPage();
     });
-    $('btnCloseQuran').addEventListener('click', () => {
-        $('panelQuran').style.display = 'none';
-    });
+    if ($('btnCloseQuran')) {
+        $('btnCloseQuran').addEventListener('click', () => {
+            $('panelQuran').style.display = 'none';
+        });
+    }
 
     // ── Submit for review ──
     $('btnSubmitReview').addEventListener('click', () => {

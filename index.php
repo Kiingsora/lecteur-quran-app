@@ -88,157 +88,99 @@ require_once __DIR__ . '/includes/views/modals/login.php';
 
         <!-- ============ VUE ENREGISTREMENT (Apprenant) ============ -->
         <div id="viewLearner" style="display:none;">
-
-            <!-- Enregistrement -->
-            <div class="panel" id="panelRecord">
+            <!-- Panneau de configuration (Choix de la sourate) - Pleine largeur en haut -->
+            <div class="panel" id="panelSurahSelector" style="margin-bottom: var(--space-lg);">
                 <div class="panel__header">
-                    <h2 class="panel__title">Enregistrement</h2>
-                    <span id="recTitleBadge" style="font-size:var(--font-size-xs);color:var(--color-text-muted);"></span>
-                </div>
-                <div class="record-section">
-                    <button class="btn--record" id="btnRecord" title="Enregistrer / Arrêter">
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" id="iconRecordStart">
-                            <circle cx="10" cy="10" r="6"/>
-                        </svg>
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" id="iconRecordStop" style="display:none;">
-                            <rect x="5" y="5" width="10" height="10" rx="2"/>
-                        </svg>
-                    </button>
-                    <div class="vu-meter" id="vuMeter">
-                        <div class="vu-meter__fill" id="vuMeterFill"></div>
-                    </div>
-                    <span class="record-status" id="recordStatus">Prêt à enregistrer</span>
-
-                    <div style="margin-left:auto;display:flex;gap:var(--space-md);align-items:center;">
-                        <div class="divider-ornament" style="margin:0;width:40px;"></div>
-                        <label class="file-drop" id="fileDrop">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" style="display:inline;vertical-align:middle;margin-right:6px;color:var(--color-gold)">
-                                <path d="M8 2v8M5 7l3 3 3-3M2 12v2h12v-2"/>
-                            </svg>
-                            Importer un audio
-                            <input type="file" id="fileInput" accept=".webm,.mp3,.wav">
-                        </label>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Waveform -->
-            <div class="panel" id="panelWaveform" style="display:none;">
-                <div class="panel__header">
-                    <h2 class="panel__title">Forme d'onde</h2>
-                    <div style="display:flex;align-items:center;gap:var(--space-lg);">
-                        <div class="slider-group" style="width:180px;">
-                            <label for="silenceThreshold">Sensibilité silences</label>
-                            <input type="range" id="silenceThreshold" min="0.005" max="0.05" step="0.005" value="0.01">
-                        </div>
-                        <button class="btn btn--ghost" id="btnDetectSilences" style="font-size:var(--font-size-xs);">
-                            ↺ Redétecter
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Canvas waveform -->
-                <div class="waveform-wrapper">
-                    <div class="waveform-container" id="waveformContainer">
-                        <canvas id="waveformCanvas"></canvas>
-                        <canvas id="markerCanvas"></canvas>
-                        <canvas id="cursorCanvas"></canvas>
-                    </div>
-                    <!-- Règle des segments -->
-                    <div class="segment-ruler" id="segmentRuler"></div>
-                </div>
-
-                <!-- Transport -->
-                <div class="transport">
-                    <div class="transport__controls">
-                        <button class="btn btn--ghost btn--icon" id="btnPrevSegment" title="Segment précédent">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3 3v10M13 8L6 3v10z"/></svg>
-                        </button>
-                        <button class="btn--play" id="btnPlayPause" title="Lecture / Pause">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" id="iconPlay"><path d="M4 2l11 6-11 6z"/></svg>
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" id="iconPause" style="display:none;"><rect x="3" y="2" width="4" height="12"/><rect x="9" y="2" width="4" height="12"/></svg>
-                        </button>
-                        <button class="btn btn--ghost btn--icon" id="btnStop" title="Stop">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><rect x="3" y="3" width="10" height="10" rx="1"/></svg>
-                        </button>
-                        <button class="btn btn--ghost btn--icon" id="btnNextSegment" title="Segment suivant">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13 3v10M3 8l7-5v10z"/></svg>
-                        </button>
-                    </div>
-                    <span class="transport__time" id="timeDisplay">00:00 / 00:00</span>
-                    <div class="transport__speed">
-                        <span class="speed-label" id="speedLabel">1×</span>
-                        <input type="range" class="speed-slider" id="speedSlider"
-                               min="0.5" max="2" step="0.05" value="1"
-                               title="Vitesse de lecture">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Sélection sourate récitée -->
-            <div class="panel" id="panelSurahSelector">
-                <div class="panel__header">
-                    <h2 class="panel__title">Sourate récitée</h2>
-                    <span style="font-size:var(--font-size-xs);color:var(--color-text-muted);">
-                        Aide le relecteur à situer la récitation
-                    </span>
+                    <h2 class="panel__title">Que voulez-vous réciter ?</h2>
                 </div>
                 <div class="surah-selector">
                     <div class="surah-selector__group">
                         <label class="surah-selector__label" for="surahSelect">Sourate</label>
                         <select id="surahSelect" class="form-input">
                             <option value="">— Sélectionner —</option>
-                            <!-- peuplé par JS depuis surahs-data.js -->
                         </select>
                     </div>
                     <div class="surah-selector__group">
                         <label class="surah-selector__label" for="ayahFrom">Du verset</label>
-                        <input type="number" id="ayahFrom" class="form-input"
-                               min="1" max="286" value="1" placeholder="1">
+                        <input type="number" id="ayahFrom" class="form-input" min="1" max="286" value="1" placeholder="1">
                     </div>
                     <div class="surah-selector__group">
                         <label class="surah-selector__label" for="ayahTo">Au verset</label>
-                        <input type="number" id="ayahTo" class="form-input"
-                               min="1" max="286" value="" placeholder="Fin">
+                        <input type="number" id="ayahTo" class="form-input" min="1" max="286" value="" placeholder="Fin">
                     </div>
                     <button class="btn btn--gold" id="btnLoadQuran">
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" style="display:inline;vertical-align:middle;margin-right:4px;">
-                            <path d="M7 1C3.7 1 1 3.7 1 7s2.7 6 6 6 6-2.7 6-6-2.7-6-6-6zm0 2.5c.4 0 .7.3.7.7S7.4 6.9 7 6.9s-.7-.3-.7-.7.3-.7.7-.7zm1 6.5H6v-4h2v4z"/>
-                        </svg>
-                        Afficher le Coran
+                        Afficher le texte
                     </button>
                 </div>
             </div>
 
-            <!-- Lecteur Coran (panneau repliable) -->
-            <div class="panel" id="panelQuran" style="display:none;">
-                <div class="panel__header">
-                    <h2 class="panel__title">Coran</h2>
-                    <div style="display:flex;align-items:center;gap:var(--space-sm);">
-                        <button class="btn btn--ghost btn--icon" id="btnQuranPrevPage" title="Page précédente">
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+            <!-- Interface Split Screen -->
+            <div style="display:flex; gap:var(--space-xl); align-items:flex-start;">
+                
+                <!-- Colonne Gauche : Enregistrement et Blocs -->
+                <div style="flex:1; display:flex; flex-direction:column; gap:var(--space-lg);">
+                    
+                    <!-- Bouton Push-to-Talk -->
+                    <div class="panel" style="text-align:center; padding:var(--space-2xl) var(--space-lg);">
+                        <h3 style="color:var(--color-text-muted); margin-bottom:var(--space-md);">Enregistrement par verset</h3>
+                        <button class="btn--record" id="btnPttRecord" style="width:100px; height:100px; margin:0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;" title="Maintenez la barre ESPACE enfoncée pour enregistrer">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="iconMic"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
                         </button>
-                        <span id="quranPageLabel" style="font-size:var(--font-size-sm);color:var(--color-text-muted);white-space:nowrap;">Page —</span>
-                        <button class="btn btn--ghost btn--icon" id="btnQuranNextPage" title="Page suivante">
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><path d="M5 2l5 5-5 5" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
-                        </button>
-                        <button class="btn btn--ghost" id="btnCloseQuran"
-                                style="font-size:var(--font-size-xs);padding:4px 8px;">
-                            ✕ Fermer
+                        <p style="margin-top:var(--space-md); font-size:var(--font-size-sm); color:var(--color-gold);" id="pttStatus">Maintenez la barre <kbd style="background:var(--color-gold-dim); padding:2px 6px; border-radius:4px; color:var(--color-gold);">ESPACE</kbd> enfoncée pour parler</p>
+                    </div>
+
+                    <!-- Liste des Blocs -->
+                    <div class="panel" id="blocksPanel" style="display:none;">
+                        <div class="panel__header">
+                            <h2 class="panel__title">Vos versets enregistrés</h2>
+                        </div>
+                        <div id="blocksContainer" style="display:flex; flex-direction:column; gap:var(--space-sm);">
+                            <!-- Les blocs audio s'ajouteront ici -->
+                        </div>
+                    </div>
+
+                    <!-- Soumettre -->
+                    <div id="panelSubmit" style="display:none; text-align:center; padding:var(--space-lg);">
+                        <button class="btn btn--gold btn--lg" id="btnSubmitReview" style="width:100%;">
+                            <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor" style="display:inline;vertical-align:middle;margin-right:6px;"><path d="M2 16l16-7L2 2v5.5l11 1.5-11 1.5z"/></svg>
+                            Envoyer la récitation complète
                         </button>
                     </div>
                 </div>
-                <div class="quran-panel__body" id="quranPanelContent" dir="rtl" lang="ar">
-                    <!-- Peuplé par QuranDisplay -->
-                </div>
-            </div>
 
-            <!-- Soumettre -->
-            <div id="panelSubmit" style="display:none;text-align:center;padding:var(--space-lg);">
-                <button class="btn btn--gold btn--lg" id="btnSubmitReview">
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor" style="display:inline;vertical-align:middle;margin-right:6px;"><path d="M2 16l16-7L2 2v5.5l11 1.5-11 1.5z"/></svg>
-                    Envoyer pour correction
-                </button>
+                <!-- Colonne Droite : Coran Dynamique -->
+                <div class="panel" id="panelQuran" style="flex:1; display:none; position:sticky; top:20px;">
+                    <div class="panel__header" style="flex-direction:column; align-items:stretch; gap:var(--space-md);">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <h2 class="panel__title">Texte Coranique</h2>
+                            <div style="display:flex; gap:var(--space-sm);">
+                                <button class="btn btn--ghost btn--icon" id="btnQuranPrevPage" title="Page précédente">◄</button>
+                                <span id="quranPageLabel" style="font-size:var(--font-size-sm);color:var(--color-text-muted);">Page —</span>
+                                <button class="btn btn--ghost btn--icon" id="btnQuranNextPage" title="Page suivante">►</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Options d'apprentissage -->
+                        <div style="background:rgba(0,0,0,0.2); padding:var(--space-sm); border-radius:var(--radius-sm); display:flex; flex-direction:column; gap:var(--space-sm);">
+                            <label style="display:flex; align-items:center; gap:var(--space-sm); font-size:var(--font-size-sm); cursor:pointer;">
+                                <input type="checkbox" id="optSingleVerse" checked>
+                                N'afficher que le verset en cours
+                            </label>
+                            <div style="display:flex; align-items:center; justify-content:space-between; font-size:var(--font-size-sm);">
+                                <span style="color:var(--color-text-muted);">Action après enregistrement :</span>
+                                <select id="optAutoAdvance" style="background:var(--color-bg-dark); color:var(--color-text); border:1px solid var(--border-panel); border-radius:4px; padding:2px 5px; font-size:var(--font-size-xs);">
+                                    <option value="next">Passer au suivant</option>
+                                    <option value="loop">Rester sur ce verset</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="quran-panel__body" id="quranPanelContent" dir="rtl" lang="ar" style="max-height:600px; overflow-y:auto; font-size:1.5rem; line-height:2.5;">
+                        <!-- Peuplé par QuranDisplay -->
+                    </div>
+                </div>
+
             </div>
         </div>
 

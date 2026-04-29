@@ -4,7 +4,7 @@
  * SECURITY: sessions HTTP-only, SameSite=Strict, CSRF via double-submit token
  */
 
-require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/../config/config.php';
 
 // ─── Session configuration (avant session_start) ───
 ini_set('session.cookie_httponly', '1');
