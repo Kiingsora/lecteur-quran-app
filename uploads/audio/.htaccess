@@ -1,0 +1,9 @@
+# Deny PHP execution in uploads directory
+<FilesMatch "\.php$">
+    Require all denied
+</FilesMatch>
+
+# Only allow audio files
+<FilesMatch "\.(webm|mp3|wav|ogg)$">
+    Require all granted
+</FilesMatch>

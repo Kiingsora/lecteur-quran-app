@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost/)",
+      "mcp__Claude_Preview__preview_start",
+      "Read(//c/MAMP/bin/php/**)"
+    ]
+  }
+}

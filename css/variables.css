@@ -1,0 +1,88 @@
+:root {
+  /* Palette principale - Noir & Doré avec touches de vert foncé */
+  --color-bg-dark: #080808;
+  --color-bg-main: #111111;
+  --color-bg-panel: #1A1A1A;
+  --color-bg-hover: #242424;
+  --color-bg-input: #0D0D0D;
+
+  /* Touches de vert foncé (accent discret) */
+  --color-green-dark: #1B4332;
+  --color-green-mid: #2D6A4F;
+  --color-green-accent: #40916C;
+
+  /* Or — couleur principale d'action */
+  --color-gold: #D4A847;
+  --color-gold-dim: #9C7A2E;
+  --color-gold-light: #E8C96A;
+  --color-gold-pale: rgba(212, 168, 71, 0.08);
+
+  /* Couleur primaire = or */
+  --color-primary: #D4A847;
+  --color-primary-light: #E8C96A;
+  --color-primary-dark: #9C7A2E;
+
+  /* Texte */
+  --color-text: #F0EAD6;
+  --color-text-muted: #8A8070;
+  --color-text-dark: #0A0A0A;
+
+  /* Sémantique */
+  --color-success: #40916C;
+  --color-warning: #E6A817;
+  --color-danger: #C0392B;
+
+  /* Catégories de correction (vives, bien visibles sur waveform) */
+  --color-cat-madd: #3498DB;
+  --color-cat-emphase: #9B59B6;
+  --color-cat-makhraj: #E74C3C;
+  --color-cat-ghunnah: #E67E22;
+  --color-cat-waqf: #F1C40F;
+  --color-cat-fluidite: #1ABC9C;
+
+  /* Typographie */
+  --font-ui: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-arabic: 'Traditional Arabic', 'Simplified Arabic', 'Amiri', serif;
+  --font-mono: 'Cascadia Code', 'Consolas', monospace;
+
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.5rem;
+  --font-size-2xl: 2rem;
+
+  /* Espacement */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --space-2xl: 3rem;
+
+  /* Bordures */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  --border-subtle: 1px solid rgba(212, 168, 71, 0.18);
+  --border-gold: 1px solid rgba(212, 168, 71, 0.5);
+  --border-panel: 1px solid rgba(212, 168, 71, 0.1);
+
+  /* Ombres */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.7);
+  --shadow-gold: 0 0 20px rgba(212, 168, 71, 0.1);
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow: 400ms ease;
+
+  /* Layout */
+  --sidebar-width: 300px;
+  --header-height: 64px;
+  --transport-height: 56px;
+}

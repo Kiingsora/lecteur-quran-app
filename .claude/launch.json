@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "qiraah",
+      "runtimeExecutable": "C:\\MAMP\\bin\\php\\php8.3.1\\php.exe",
+      "runtimeArgs": ["-S", "localhost:8080", "-t", "."],
+      "port": 8080
+    }
+  ]
+}

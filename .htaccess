@@ -1,0 +1,65 @@
+# =============================================
+# Qira'ah - Security .htaccess
+# =============================================
+
+# Block access to ALL sensitive files
+<FilesMatch "(\.env|\.env\.example|\.git|composer\.(json|lock)|package\.json|\.htpasswd)">
+    Require all denied
+</FilesMatch>
+
+# Block directory listing
+Options -Indexes
+
+# Block access to PHP files in uploads
+<FilesMatch "\.php$">
+    <If "%{REQUEST_URI} =~ m#^/uploads/#">
+        Require all denied
+    </If>
+</FilesMatch>
+
+# ─── Security Headers ───
+<IfModule mod_headers.c>
+
+    # Prevent MIME sniffing
+    Header always set X-Content-Type-Options "nosniff"
+
+    # Prevent clickjacking
+    Header always set X-Frame-Options "SAMEORIGIN"
+
+    # Referrer policy
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+    # Permissions policy (microphone needed for recording)
+    Header always set Permissions-Policy "microphone=(self), camera=(), geolocation=(), payment=()"
+
+    # Content Security Policy
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'sha256-ieoeWczDHkReVBsRBqaal5AFMlBtNjMzgwKvLqi/tSU='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; object-src 'none'; connect-src 'self'; worker-src 'none'; frame-ancestors 'none';"
+
+    # XSS Protection (legacy browsers)
+    Header always set X-XSS-Protection "1; mode=block"
+
+    # HSTS (HTTP Strict Transport Security) - 1 an, inclut sous-domaines
+    # Activer uniquement si HTTPS est configuré
+    # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+
+    # Remove server signature
+    Header always unset X-Powered-By
+    Header always unset Server
+
+</IfModule>
+
+# ─── PHP Security ───
+<IfModule mod_php.c>
+    # Ne pas exposer la version PHP
+    php_flag expose_php off
+    # Désactiver les fonctions dangereuses en prod si possible
+    # php_value disable_functions "exec,passthru,shell_exec,system,proc_open,popen"
+</IfModule>
+
+# ─── Cache Control pour assets statiques ───
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css             "access plus 1 week"
+    ExpiresByType application/javascript "access plus 1 week"
+    ExpiresByType image/svg+xml        "access plus 1 month"
+</IfModule>
