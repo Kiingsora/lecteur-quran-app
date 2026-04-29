@@ -30,7 +30,7 @@ export class QuranDisplay {
         if (!Number.isInteger(n) || n < 1 || n > 604) return;
         this._showSpinner();
         try {
-            const data = await this._apiFetch(`php/api/quran.php?page=${n}`);
+            const data = await this._apiFetch(`includes/api/quran.php?page=${n}`);
             this._page  = n;
             this._ayahs = data.ayahs || [];
             this._activeKey  = null;
@@ -48,7 +48,7 @@ export class QuranDisplay {
         if (!Number.isInteger(sid) || sid < 1 || sid > 114) return;
         this._showSpinner();
         try {
-            const data = await this._apiFetch(`php/api/quran.php?surah=${sid}`);
+            const data = await this._apiFetch(`includes/api/quran.php?surah=${sid}`);
             let ayahs = data.ayahs || [];
             const from = Math.max(1, parseInt(ayahStart, 10) || 1);
             const to   = ayahEnd ? parseInt(ayahEnd, 10) : null;

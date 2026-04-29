@@ -1037,19 +1037,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             showToast('Sélectionnez d\'abord une sourate', 'error');
             return;
         }
-        $('panelQuran').style.display = '';
         await quranDisplay.loadSurah(state.surahId, state.ayahFrom, state.ayahTo);
-        // Scroll vers le panneau
-        $('panelQuran').scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
 
     // ── Navigation page Coran ──
-    $('btnQuranPrevPage').addEventListener('click', async () => {
-        await quranDisplay.prevPage();
-    });
-    $('btnQuranNextPage').addEventListener('click', async () => {
-        await quranDisplay.nextPage();
-    });
+    if ($('btnQuranPrevPage')) {
+        $('btnQuranPrevPage').addEventListener('click', async () => {
+            await quranDisplay.prevPage();
+        });
+    }
+    if ($('btnQuranNextPage')) {
+        $('btnQuranNextPage').addEventListener('click', async () => {
+            await quranDisplay.nextPage();
+        });
+    }
     if ($('btnCloseQuran')) {
         $('btnCloseQuran').addEventListener('click', () => {
             $('panelQuran').style.display = 'none';
