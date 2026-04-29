@@ -51,12 +51,15 @@ if (!is_dir($cacheDir)) {
 }
 
 // 8. Clé de cache et URL API
+// We fetch: Tajweed (Arabic), French Translation, English Transliteration
+$editions = 'quran-tajweed,fr.hamidullah,en.transliteration';
+
 if ($hasPage) {
-    $cacheKey = 'page_' . $page;
-    $apiUrl   = 'https://api.alquran.cloud/v1/page/' . $page . '/quran-uthmani';
+    $cacheKey = 'page_editions_' . $page;
+    $apiUrl   = 'https://api.alquran.cloud/v1/page/' . $page . '/editions/' . $editions;
 } else {
-    $cacheKey = 'surah_' . $surah;
-    $apiUrl   = 'https://api.alquran.cloud/v1/surah/' . $surah . '/quran-uthmani';
+    $cacheKey = 'surah_editions_' . $surah;
+    $apiUrl   = 'https://api.alquran.cloud/v1/surah/' . $surah . '/editions/' . $editions;
 }
 
 // Nom de fichier cache : alphanumérique uniquement
@@ -96,33 +99,40 @@ if (strlen($raw) > 2 * 1024 * 1024) {
 }
 
 $data = json_decode($raw, true);
-if (!is_array($data) || ($data['status'] ?? '') !== 'OK') {
+if (!is_array($data) || ($data['status'] ?? '') !== 'OK' || !isset($data['data'])) {
     jsonError('Réponse invalide de l\'API Coran', 502);
 }
 
-// 11. Extraire et normaliser les versets
-$ayahs = $data['data']['ayahs'] ?? [];
-if (!is_array($ayahs)) {
-    jsonError('Format de réponse inattendu', 502);
-}
+// 11. Formater les données (fusionner les 3 éditions)
+// $data['data'] is an array of 3 edition objects.
+$tajweedData = $data['data'][0];
+$frData = $data['data'][1];
+$transData = $data['data'][2];
 
-$result = [];
-foreach ($ayahs as $a) {
-    if (!is_array($a)) continue;
-    $result[] = [
-        'number'        => (int)($a['number']        ?? 0),
-        'numberInSurah' => (int)($a['numberInSurah'] ?? 0),
-        'surah'         => (int)($a['surah']['number'] ?? 0),
-        'surahName'     => (string)($a['surah']['name'] ?? ''),
-        'surahNameFr'   => (string)($a['surah']['englishName'] ?? ''),
-        'text'          => (string)($a['text'] ?? ''),
-        'page'          => (int)($a['page'] ?? 0),
-        'juz'           => (int)($a['juz']  ?? 0),
+$ayahs = [];
+$surahName = $tajweedData['name'] ?? '';
+$surahNameFr = $tajweedData['englishName'] ?? '';
+
+$tajweedAyahs = $hasPage ? $tajweedData['ayahs'] : $tajweedData['ayahs'];
+$frAyahs = $hasPage ? $frData['ayahs'] : $frData['ayahs'];
+$transAyahs = $hasPage ? $transData['ayahs'] : $transData['ayahs'];
+
+foreach ($tajweedAyahs as $i => $a) {
+    $ayahs[] = [
+        'number'        => $a['number'],
+        'surah'         => $a['surah']['number'] ?? $surah,
+        'numberInSurah' => $a['numberInSurah'],
+        'page'          => $a['page'],
+        'text'          => $a['text'], // Tajweed text (can contain HTML/tags)
+        'translation'   => $frAyahs[$i]['text'] ?? '',
+        'phonetics'     => $transAyahs[$i]['text'] ?? '',
+        'surahName'     => $a['surah']['name'] ?? $surahName,
+        'surahNameFr'   => $a['surah']['englishName'] ?? $surahNameFr
     ];
 }
 
 $response = json_encode(
-    ['ok' => true, 'ayahs' => $result, 'count' => count($result)],
+    ['ok' => true, 'ayahs' => $ayahs, 'count' => count($ayahs)],
     JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
 );
 

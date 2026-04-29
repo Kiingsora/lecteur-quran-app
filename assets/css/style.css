@@ -246,13 +246,15 @@ a:hover { color: var(--color-gold-light); }
    ============================================ */
 
 .app-layout {
-  display: grid;
-  grid-template-columns: 1fr var(--sidebar-width);
+  display: flex;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
+
 .main-content {
+  flex: 1;
   padding: var(--space-xl);
   overflow-y: auto;
   display: flex;
@@ -261,6 +263,7 @@ a:hover { color: var(--color-gold-light); }
 }
 
 .sidebar {
+  width: var(--sidebar-width);
   background: var(--color-bg-main);
   border-left: var(--border-subtle);
   padding: var(--space-lg);
@@ -268,7 +271,13 @@ a:hover { color: var(--color-gold-light); }
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
+  flex-shrink: 0;
 }
+
+.sidebar[style*="display: none"], .sidebar:empty {
+  display: none !important;
+}
+
 
 /* ============================================
    Panels
@@ -1262,6 +1271,119 @@ input[type="range"]::-moz-range-thumb {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
+
+/* ============================================
+   Verse Card Layout (Saint-Coran style)
+   ============================================ */
+.verse-card {
+  background: var(--color-bg-darker);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  margin-bottom: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.verse-card:hover {
+  border-color: rgba(212, 168, 71, 0.3); /* Gold léger */
+}
+
+.verse-card.quran-verse--active {
+  border-color: var(--color-gold);
+  box-shadow: 0 0 15px rgba(212, 168, 71, 0.1);
+}
+
+.verse-card__content {
+  display: flex;
+  padding: var(--space-xl);
+  gap: var(--space-xl);
+  flex-direction: row-reverse; /* Arabic is on the right visually if dir=ltr on container */
+}
+
+.verse-card__meta {
+  flex: 1;
+  display: flex;
+  gap: var(--space-md);
+  text-align: left;
+}
+
+.verse-card__number {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--color-gold);
+  color: var(--color-gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xs);
+  flex-shrink: 0;
+}
+
+.verse-card__text-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.verse-card__translation {
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+
+.verse-card__phonetics {
+  font-size: var(--font-size-sm);
+  color: #8b8b93;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+.verse-card__arabic {
+  flex: 2;
+  font-size: var(--font-size-3xl);
+  line-height: 2.2;
+  color: #fff;
+  text-align: right;
+  font-family: var(--font-arabic);
+}
+
+.verse-card__toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-sm) var(--space-xl);
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.verse-card__actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.verse-card__ref {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* Couleurs Tajweed GlobalQuran / AlQuran.cloud API */
+tajweed {
+  border-radius: 2px;
+}
+/* Prolongation / Madd (Rouge) */
+tajweed.tj-p, tajweed.tj-m { color: #f05252; } 
+/* Ghunnah / Nasal / Idgham avec Ghunnah (Vert) */
+tajweed.tj-n, tajweed.tj-d { color: #31c48d; } 
+/* Qalqalah (Jaune/Or) */
+tajweed.tj-q { color: #e3a008; } 
+/* Ikhfa / Iqlab (Bleu) */
+tajweed.tj-i, tajweed.tj-b { color: #3f83f8; } 
+/* Lettres silencieuses / Hamzat Wasl (Gris clair) */
+tajweed.tj-h, tajweed.tj-l, tajweed.tj-s { color: #8f9296; opacity: 0.7; } 
+
 
 /* ============================================
    Responsive

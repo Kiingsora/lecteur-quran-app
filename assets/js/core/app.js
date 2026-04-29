@@ -206,12 +206,15 @@ function onUserLoggedIn() {
 function setMode(mode) {
     state.mode = mode;
 
-    // Hide all views
+    // Hide all views and the sidebar container
     ['viewDashboardLearner','viewDashboardReviewer','viewLearner','viewReviewer'].forEach(id => {
-        $(id).style.display = 'none';
+        const el = $(id);
+        if (el) el.style.display = 'none';
     });
+    if ($('sidebar')) $('sidebar').style.display = 'none';
     ['sidebarLearner','sidebarReviewer'].forEach(id => {
-        $(id).style.display = 'none';
+        const el = $(id);
+        if (el) el.style.display = 'none';
     });
 
     // Update active btn
@@ -229,11 +232,15 @@ function setMode(mode) {
             renderReviewerDashboard();
         }
     } else if (mode === 'learner') {
-        $('viewLearner').style.display    = '';
-        $('sidebarLearner').style.display = '';
+        const vl = $('viewLearner');
+        if (vl) vl.style.display = '';
+        // Note: sidebarLearner has been removed from index.php, so we don't show the sidebar here
     } else if (mode === 'reviewer') {
-        $('viewReviewer').style.display    = '';
-        $('sidebarReviewer').style.display = '';
+        const vr = $('viewReviewer');
+        if (vr) vr.style.display = '';
+        if ($('sidebar')) $('sidebar').style.display = 'flex';
+        const sr = $('sidebarReviewer');
+        if (sr) sr.style.display = '';
         // Afficher les infos de verset si une sourate a été sélectionnée
         _updateVerseInfoCard();
         if (state.audioBuffer) initReviewerAudio();
@@ -736,6 +743,50 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    const addAudioBlock = (blob) => {
+        const container = $('blocksContainer');
+        const emptyState = $('blocksEmptyState');
+        if (emptyState) emptyState.style.display = 'none';
+
+        const blockId = Date.now();
+        const url = URL.createObjectURL(blob);
+
+        const blockEl = document.createElement('div');
+        blockEl.className = 'panel';
+        blockEl.style.padding = 'var(--space-md)';
+        blockEl.style.marginBottom = 'var(--space-sm)';
+        blockEl.style.display = 'flex';
+        blockEl.style.alignItems = 'center';
+        blockEl.style.gap = 'var(--space-md)';
+        blockEl.style.border = '1px solid rgba(212, 168, 71, 0.2)';
+        blockEl.innerHTML = `
+            <div style="width:32px; height:32px; border-radius:50%; background:var(--color-gold-dim); display:flex; align-items:center; justify-content:center; color:var(--color-gold); font-size:var(--font-size-xs); flex-shrink:0;">
+                ${container.children.length}
+            </div>
+            <div style="flex:1;">
+                <audio src="${url}" controls style="width:100%; height:32px;"></audio>
+            </div>
+            <button class="btn btn--ghost btn--icon btn-delete-block" title="Supprimer ce bloc">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+            </button>
+
+        `;
+
+        const deleteBtn = blockEl.querySelector('.btn-delete-block');
+        deleteBtn.addEventListener('click', () => {
+            blockEl.remove();
+            if (container.children.length === 0) {
+                if (emptyState) emptyState.style.display = 'block';
+                if ($('panelSubmit')) $('panelSubmit').style.display = 'none';
+            }
+        });
+
+        container.appendChild(blockEl);
+        
+        // Afficher le bouton de soumission si au moins un bloc
+        if ($('panelSubmit')) $('panelSubmit').style.display = 'block';
+    };
+
     const stopPttRecord = async () => {
         if (!isPttRecording) return;
         if (recorder.isRecording()) {
@@ -747,7 +798,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 pttStatus.textContent = "Relâché. Bloc enregistré.";
                 pttStatus.style.color = "var(--color-gold)";
             }
-            console.log("Recorded block:", blob);
+            addAudioBlock(blob);
         }
     };
 
@@ -999,46 +1050,75 @@ document.addEventListener('DOMContentLoaded', async () => {
             sel.appendChild(opt);
         });
     })();
-
-    // ── Surah selector : mettre à jour l'ayah max et l'état ──
-    $('surahSelect').addEventListener('change', () => {
-        const sid = parseInt($('surahSelect').value, 10);
-        if (!Number.isInteger(sid) || sid < 1 || sid > 114) {
-            state.surahId = null;
-            $('ayahFrom').max = 286;
-            $('ayahTo').max   = 286;
-            return;
-        }
-        const s = getSurah(sid);
-        if (!s) return;
-        state.surahId = sid;
-        $('ayahFrom').max = s.ayahs;
-        $('ayahTo').max   = s.ayahs;
-        $('ayahFrom').value = '1';
-        $('ayahTo').value   = '';
-        state.ayahFrom = 1;
-        state.ayahTo   = null;
-    });
-
-    $('ayahFrom').addEventListener('change', () => {
-        state.ayahFrom = parseInt($('ayahFrom').value, 10) || 1;
-    });
-    $('ayahTo').addEventListener('change', () => {
-        const v = parseInt($('ayahTo').value, 10);
-        state.ayahTo = (v && v > 0) ? v : null;
-    });
-
+    
     // ── Quran display init ──
     quranDisplay = new QuranDisplay($('quranPanelContent'), $('quranPageLabel'));
 
-    // ── Charger et afficher le Coran ──
-    $('btnLoadQuran').addEventListener('click', async () => {
-        if (!state.surahId) {
-            showToast('Sélectionnez d\'abord une sourate', 'error');
+    // ── Charger le Coran automatiquement au changement de sélection ──
+
+    const autoLoadQuran = async () => {
+        const sid = parseInt($('surahSelect').value, 10);
+        if (!Number.isInteger(sid) || sid < 1 || sid > 114) {
+            state.surahId = null;
             return;
         }
+        
+        // Mise à jour de l'état
+        state.surahId = sid;
+        state.ayahFrom = parseInt($('ayahFrom').value, 10) || 1;
+        const vTo = parseInt($('ayahTo').value, 10);
+        state.ayahTo = (vTo && vTo > 0) ? vTo : null;
+
+        // Mise à jour des limites max des inputs
+        const s = getSurah(sid);
+        if (s) {
+            $('ayahFrom').max = s.ayahs;
+            $('ayahTo').max   = s.ayahs;
+        }
+
         await quranDisplay.loadSurah(state.surahId, state.ayahFrom, state.ayahTo);
-    });
+    };
+
+    if ($('surahSelect')) {
+        $('surahSelect').addEventListener('change', async () => {
+            const sid = parseInt($('surahSelect').value, 10);
+            if (sid >= 1 && sid <= 114) {
+                // Reset verses to start of surah
+                $('ayahFrom').value = '1';
+                $('ayahTo').value   = '';
+            }
+            await autoLoadQuran();
+        });
+    }
+    if ($('ayahFrom')) $('ayahFrom').addEventListener('change', autoLoadQuran);
+    if ($('ayahTo')) $('ayahTo').addEventListener('change', autoLoadQuran);
+
+
+
+    // ── Options d'affichage ──
+    const reRenderQuran = () => {
+        if (quranDisplay && quranDisplay._ayahs.length > 0) {
+            quranDisplay._render();
+        }
+    };
+    if ($('optTajweed')) $('optTajweed').addEventListener('change', reRenderQuran);
+    if ($('optTranslation')) $('optTranslation').addEventListener('change', reRenderQuran);
+    if ($('optPhonetics')) $('optPhonetics').addEventListener('change', reRenderQuran);
+
+    // ── Font Size ──
+    let currentFontSize = 2; // rem
+    if ($('btnFontInc')) {
+        $('btnFontInc').addEventListener('click', () => {
+            currentFontSize += 0.2;
+            $('quranPanelContent').style.fontSize = `${currentFontSize}rem`;
+        });
+    }
+    if ($('btnFontDec')) {
+        $('btnFontDec').addEventListener('click', () => {
+            currentFontSize = Math.max(1, currentFontSize - 0.2);
+            $('quranPanelContent').style.fontSize = `${currentFontSize}rem`;
+        });
+    }
 
     // ── Navigation page Coran ──
     if ($('btnQuranPrevPage')) {

@@ -131,7 +131,8 @@ require_once __DIR__ . '/includes/views/modals/login.php';
             <div style="display:flex; gap:var(--space-xl); align-items:flex-start; min-height: 80vh;">
                 
                 <!-- Colonne Gauche : Enregistrement et Blocs -->
-                <div style="flex:1; display:flex; flex-direction:column; gap:var(--space-lg); max-width: 50%;">
+                <div style="flex: 35; display:flex; flex-direction:column; gap:var(--space-lg);">
+
                     
                     <!-- Bouton Push-to-Talk -->
                     <div class="panel" style="text-align:center; padding:var(--space-2xl) var(--space-lg); position:sticky; top:20px; z-index:10;">
@@ -166,7 +167,8 @@ require_once __DIR__ . '/includes/views/modals/login.php';
                 </div>
 
                 <!-- Colonne Droite : Coran Dynamique -->
-                <div class="panel" id="panelQuran" style="flex:1; display:flex; flex-direction:column; position:sticky; top:20px; height:calc(100vh - 120px);">
+                <div class="panel" id="panelQuran" style="flex: 65; display:flex; flex-direction:column; position:sticky; top:20px; height:calc(100vh - 120px);">
+
                     
                     <!-- Choix de la Sourate -->
                     <div class="panel__header" style="flex-direction:column; align-items:stretch; gap:var(--space-md); padding-bottom:var(--space-md); border-bottom:1px solid var(--border-panel);">
@@ -187,27 +189,55 @@ require_once __DIR__ . '/includes/views/modals/login.php';
                                 <label class="surah-selector__label" for="ayahTo">Au</label>
                                 <input type="number" id="ayahTo" class="form-input" min="1" max="286" value="" placeholder="Fin">
                             </div>
-                            <button class="btn btn--gold" id="btnLoadQuran" style="align-self:flex-end;">Afficher</button>
                         </div>
+
                         
-                        <!-- Options d'apprentissage -->
-                        <div style="background:rgba(0,0,0,0.2); padding:var(--space-sm); border-radius:var(--radius-sm); display:flex; flex-direction:column; gap:var(--space-sm);">
-                            <label style="display:flex; align-items:center; gap:var(--space-sm); font-size:var(--font-size-sm); cursor:pointer;">
-                                <input type="checkbox" id="optSingleVerse" checked>
-                                N'afficher que le verset en cours
-                            </label>
-                            <div style="display:flex; align-items:center; justify-content:space-between; font-size:var(--font-size-sm);">
-                                <span style="color:var(--color-text-muted);">Action après enregistrement :</span>
-                                <select id="optAutoAdvance" style="background:var(--color-bg-dark); color:var(--color-text); border:1px solid var(--border-panel); border-radius:4px; padding:2px 5px; font-size:var(--font-size-xs);">
-                                    <option value="next">Passer au suivant</option>
-                                    <option value="loop">Rester sur ce verset</option>
-                                </select>
+                        <!-- Toolbar des options de lecture -->
+                        <div style="background:var(--color-bg-dark); padding:var(--space-sm) var(--space-md); border-radius:var(--radius-sm); border:1px solid var(--border-panel); display:flex; flex-direction:column; gap:var(--space-md);">
+                            
+                            <!-- Tab: Affichage -->
+                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:var(--space-sm);">
+                                <div style="display:flex; gap:var(--space-md); align-items:center;">
+                                    <label style="display:flex; align-items:center; gap:var(--space-xs); font-size:var(--font-size-sm); cursor:pointer; color:var(--color-text);">
+                                        <input type="checkbox" id="optTajweed" checked> Couleurs Tajweed
+                                    </label>
+                                    <label style="display:flex; align-items:center; gap:var(--space-xs); font-size:var(--font-size-sm); cursor:pointer; color:var(--color-text);">
+                                        <input type="checkbox" id="optTranslation" checked> Traduction
+                                    </label>
+                                    <label style="display:flex; align-items:center; gap:var(--space-xs); font-size:var(--font-size-sm); cursor:pointer; color:var(--color-text);">
+                                        <input type="checkbox" id="optPhonetics"> Phonétique
+                                    </label>
+                                </div>
+                                
+                                <div style="display:flex; align-items:center; gap:var(--space-sm);">
+                                    <span style="font-size:var(--font-size-xs); color:var(--color-text-muted);">Taille Texte:</span>
+                                    <button class="btn btn--ghost" id="btnFontDec" style="padding:2px 8px; font-size:12px;">A-</button>
+                                    <button class="btn btn--ghost" id="btnFontInc" style="padding:2px 8px; font-size:16px;">A+</button>
+                                </div>
                             </div>
+                            
+                            <hr style="border:0; border-top:1px solid rgba(255,255,255,0.05); margin:0;">
+
+                            <!-- Tab: Apprentissage -->
+                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:var(--space-sm);">
+                                <label style="display:flex; align-items:center; gap:var(--space-xs); font-size:var(--font-size-sm); cursor:pointer; color:var(--color-text);">
+                                    <input type="checkbox" id="optSingleVerse" checked>
+                                    Cibler uniquement le verset en cours
+                                </label>
+                                <div style="display:flex; align-items:center; gap:var(--space-sm); font-size:var(--font-size-sm);">
+                                    <span style="color:var(--color-text-muted);">Après enregistrement:</span>
+                                    <select id="optAutoAdvance" style="background:rgba(0,0,0,0.3); color:var(--color-text); border:1px solid var(--color-gold-dim); border-radius:4px; padding:4px 8px; outline:none;">
+                                        <option value="next">Passer au suivant</option>
+                                        <option value="loop">Rester sur ce verset</option>
+                                    </select>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
                     
-                    <div class="quran-panel__body" id="quranPanelContent" dir="rtl" lang="ar" style="flex:1; overflow-y:auto; padding:var(--space-lg); font-size:2rem; line-height:2.8; text-align:center; background:var(--color-bg-dark); border-radius:0 0 var(--radius-lg) var(--radius-lg);">
-                        <div style="color:var(--color-text-muted); font-size:1rem; margin-top:50px;">Sélectionnez une sourate ci-dessus.</div>
+                    <div class="quran-panel__body" id="quranPanelContent" dir="rtl" lang="ar" style="flex:1; overflow-y:auto; padding:var(--space-lg); font-size:2rem; line-height:2.8; text-align:right; background:var(--color-bg-dark); border-radius:0 0 var(--radius-lg) var(--radius-lg);">
+                        <div style="color:var(--color-text-muted); font-size:1rem; margin-top:50px; text-align:center;">Sélectionnez une sourate ci-dessus.</div>
                     </div>
                 </div>
 
@@ -337,29 +367,8 @@ require_once __DIR__ . '/includes/views/modals/login.php';
     <!-- ─── SIDEBAR ─── -->
     <aside class="sidebar" id="sidebar">
 
-        <!-- Sidebar apprenant : pins + segments -->
-        <div id="sidebarLearner" style="display:none;">
-            <div class="panel">
-                <div class="panel__header">
-                    <h2 class="panel__title">Repères (Pins)</h2>
-                    <button class="btn btn--ghost" id="btnAddPin" style="font-size:var(--font-size-xs);padding:4px 8px;">
-                        + Ajouter
-                    </button>
-                </div>
-                <ul class="pin-list" id="pinList">
-                    <li class="empty-state"><div class="empty-state__text">Aucun pin.</div></li>
-                </ul>
-            </div>
+        <!-- Sidebar apprenant : Supprimée à la demande de l'utilisateur -->
 
-            <div class="panel">
-                <div class="panel__header">
-                    <h2 class="panel__title">Segments</h2>
-                </div>
-                <ul class="segment-list" id="segmentList">
-                    <li class="empty-state"><div class="empty-state__text">Aucun segment.</div></li>
-                </ul>
-            </div>
-        </div>
 
         <!-- Sidebar relecteur : points de correction + checklist -->
         <div id="sidebarReviewer" style="display:none;">

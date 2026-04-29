@@ -18,7 +18,66 @@ export class QuranDisplay {
         this._ayahs      = [];       // versets chargés
         this._activeKey  = null;     // "surahId:ayahNum" du verset actif
         this._activeWord = -1;       // index du mot actif dans le verset
+        
+        // Audio local pour la lecture par verset
+        this._audio = new Audio();
+        
+        this._initEvents();
     }
+    
+    _initEvents() {
+        this._container.addEventListener('click', e => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            
+            const card = btn.closest('.verse-card');
+            if (!card) return;
+            
+            const verseNum = card.dataset.verseNum; // Ayah number in Quran (absolute)
+            const surahNum = card.dataset.surahNum;
+            const ayahNum  = card.dataset.ayahNum;  // In surah
+            
+            if (btn.classList.contains('btn-verse-play')) {
+                this._playVerse(verseNum, btn);
+            } else if (btn.classList.contains('btn-verse-copy')) {
+                this._copyVerse(card);
+            } else if (btn.classList.contains('btn-verse-tafsir')) {
+                this._showTafsir(surahNum, ayahNum);
+            }
+        });
+    }
+
+    _playVerse(verseNum, btn) {
+        const url = `https://cdn.islamic.network/quran/audio/128/ar.alafasy/${verseNum}.mp3`;
+        if (this._audio.src === url && !this._audio.paused) {
+            this._audio.pause();
+            btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+        } else {
+            this._audio.src = url;
+            this._audio.play();
+            btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
+            this._audio.onended = () => {
+                btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+            };
+        }
+    }
+
+    _copyVerse(card) {
+        const text = card.querySelector('.verse-card__arabic').textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            // On pourrait appeler showToast ici si on avait accès, mais on va juste changer l'icône brièvement
+            const btn = card.querySelector('.btn-verse-copy');
+            const original = btn.innerHTML;
+            btn.innerHTML = '✓';
+            setTimeout(() => btn.innerHTML = original, 2000);
+        });
+    }
+
+    _showTafsir(surah, ayah) {
+        // Pour l'instant on ouvre une recherche ou un lien externe pour plus de simplicité
+        window.open(`https://quran.com/${surah}:${ayah}?font=v1&translations=131`, '_blank');
+    }
+
 
     // ─────────────────────────────────────────────
     // API publique
@@ -153,6 +212,11 @@ export class QuranDisplay {
             bySurah.get(ayah.surah).push(ayah);
         }
 
+        // Settings
+        const showTajweed = document.getElementById('optTajweed') ? document.getElementById('optTajweed').checked : true;
+        const showTranslation = document.getElementById('optTranslation') ? document.getElementById('optTranslation').checked : true;
+        const showPhonetics = document.getElementById('optPhonetics') ? document.getElementById('optPhonetics').checked : false;
+
         for (const [, ayahs] of bySurah) {
             // En-tête sourate
             const header = document.createElement('div');
@@ -171,33 +235,84 @@ export class QuranDisplay {
             }
             this._container.appendChild(header);
 
-            // Versets
+            // Versets (Cards)
             for (const ayah of ayahs) {
-                const verseEl = document.createElement('div');
-                verseEl.className = 'quran-verse';
-                verseEl.dataset.verse = `${ayah.surah}:${ayah.numberInSurah}`;
+                const verseCard = document.createElement('div');
+                verseCard.className = 'verse-card';
+                verseCard.dataset.verse = `${ayah.surah}:${ayah.numberInSurah}`;
+                verseCard.dataset.verseNum = ayah.number;
+                verseCard.dataset.surahNum = ayah.surah;
+                verseCard.dataset.ayahNum  = ayah.numberInSurah;
 
-                // Numéro de verset (à gauche dans le flow RTL)
-                const numEl = document.createElement('span');
-                numEl.className = 'quran-verse-num';
-                // Caractères arabiques ﴿ ﴾ pour l'encadrement
-                numEl.textContent = `\u{FD3E}${ayah.numberInSurah}\u{FD3F}`;
-                verseEl.appendChild(numEl);
+                
+                // Content grid
+                const contentGrid = document.createElement('div');
+                contentGrid.className = 'verse-card__content';
+                
+                // Left column: Number + Translation + Phonetics
+                const leftCol = document.createElement('div');
+                leftCol.className = 'verse-card__meta';
+                
+                const numCircle = document.createElement('div');
+                numCircle.className = 'verse-card__number';
+                numCircle.textContent = ayah.numberInSurah;
+                leftCol.appendChild(numCircle);
+                
+                const textMeta = document.createElement('div');
+                textMeta.className = 'verse-card__text-meta';
+                
+                if (showPhonetics && ayah.phonetics) {
+                    const ph = document.createElement('div');
+                    ph.className = 'verse-card__phonetics';
+                    ph.textContent = ayah.phonetics;
+                    textMeta.appendChild(ph);
+                }
+                
+                if (showTranslation && ayah.translation) {
+                    const tr = document.createElement('div');
+                    tr.className = 'verse-card__translation';
+                    tr.textContent = ayah.translation;
+                    textMeta.appendChild(tr);
+                }
+                leftCol.appendChild(textMeta);
+                
+                // Right column: Arabic
+                const rightCol = document.createElement('div');
+                rightCol.className = 'verse-card__arabic';
+                rightCol.dir = 'rtl';
+                rightCol.lang = 'ar';
+                
+                // Parse Tajweed custom bracket syntax: [class[text] or [class:id[text]
+                // Example: [h:1[ٱ] -> <tajweed class="tj-h">ٱ</tajweed>
+                let arabicHtml = ayah.text;
+                if (showTajweed) {
+                    arabicHtml = arabicHtml.replace(/\[([a-zA-Z]+)(?::\d+)?\[([^\]]+)\]/g, '<tajweed class="tj-$1">$2</tajweed>');
+                } else {
+                    arabicHtml = arabicHtml.replace(/\[([a-zA-Z]+)(?::\d+)?\[([^\]]+)\]/g, '$2');
+                }
+                
+                // Also wrap words for word-by-word tracking
+                rightCol.innerHTML = arabicHtml;
+                
+                contentGrid.appendChild(leftCol);
+                contentGrid.appendChild(rightCol);
+                
+                // Toolbar
+                const toolbar = document.createElement('div');
+                toolbar.className = 'verse-card__toolbar';
+                toolbar.innerHTML = `
+                    <div class="verse-card__actions">
+                        <button class="btn btn--ghost btn--icon btn-verse-play" title="Écouter ce verset"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></button>
+                        <button class="btn btn--ghost btn--icon btn-verse-copy" title="Copier le texte arabe"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
+                        <button class="btn btn--ghost btn--icon btn-verse-tafsir" title="Voir le Tafsir"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h12v10H2z"/><path d="M6 3v10"/></svg></button>
+                    </div>
+                    <div class="verse-card__ref">${ayah.surah}:${ayah.numberInSurah}</div>
+                `;
 
-                // Mots du verset — split sur espace
-                const words = ayah.text.split(' ');
-                words.forEach((word, idx) => {
-                    if (idx > 0) {
-                        verseEl.appendChild(document.createTextNode(' '));
-                    }
-                    const wordEl = document.createElement('span');
-                    wordEl.className = 'quran-word';
-                    wordEl.dataset.word = String(idx);
-                    wordEl.textContent = word;
-                    verseEl.appendChild(wordEl);
-                });
-
-                this._container.appendChild(verseEl);
+                
+                verseCard.appendChild(contentGrid);
+                verseCard.appendChild(toolbar);
+                this._container.appendChild(verseCard);
             }
         }
     }
