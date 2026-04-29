@@ -187,8 +187,13 @@ function onUserLoggedIn() {
 
     $('userInfo').style.display     = '';
     $('userDisplayName').textContent = `${username} · ${role === 'learner' ? 'Apprenant' : 'Relecteur'}`;
+    if ($('userAvatar')) {
+        $('userAvatar').textContent = username.charAt(0).toUpperCase();
+    }
     $('modeSwitcher').style.display = '';
-    $('btnLogout').style.display    = '';
+    
+    // Le bouton de déconnexion est maintenant dans le dropdown, on peut le laisser tel quel
+    if ($('btnLogout')) $('btnLogout').style.display = '';
 
     // Show/hide mode buttons depending on role
     $('btnModeLearner').style.display  = role === 'learner' ? '' : 'none';

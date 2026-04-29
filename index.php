@@ -12,8 +12,8 @@
     <meta http-equiv="Content-Security-Policy"
           content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'sha256-ieoeWczDHkReVBsRBqaal5AFMlBtNjMzgwKvLqi/tSU='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; object-src 'none'; connect-src 'self';">
 
-    <link rel="stylesheet" href="css/variables.css">
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="assets/css/variables.css">
+    <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
 
@@ -70,10 +70,6 @@
         <span class="header__subtitle">Correction de récitation</span>
     </div>
     <nav class="header__nav">
-        <!-- Infos user -->
-        <span id="userInfo" style="font-size:var(--font-size-sm);color:var(--color-text-muted);display:none;">
-            <span id="userDisplayName"></span>
-        </span>
         <!-- Mode switcher -->
         <div class="mode-switcher" id="modeSwitcher" style="display:none;">
             <button class="mode-switcher__btn mode-switcher__btn--active" data-mode="dashboard" id="btnModeDashboard">
@@ -86,7 +82,19 @@
                 Correction
             </button>
         </div>
-        <button class="btn btn--ghost" id="btnLogout" style="display:none;font-size:var(--font-size-xs);">Déconnexion</button>
+
+        <!-- Infos user (dropdown) -->
+        <div class="user-profile" id="userInfo" style="display:none;">
+            <div class="user-profile__avatar" id="userAvatar">?</div>
+            <span id="userDisplayName"></span>
+            
+            <div class="profile-dropdown" id="profileDropdown">
+                <a href="#" class="profile-dropdown__item">👤 Mon Profil</a>
+                <a href="#" class="profile-dropdown__item">⚙️ Paramètres</a>
+                <a href="abonnement.php" class="profile-dropdown__item">⭐ Abonnement</a>
+                <button class="profile-dropdown__item profile-dropdown__item--danger" id="btnLogout" style="width: 100%; text-align: left;">🚪 Déconnexion</button>
+            </div>
+        </div>
     </nav>
 </header>
 
@@ -562,8 +570,7 @@
 <!-- Toast container -->
 <div class="toast-container" id="toastContainer"></div>
 
-<!-- Scripts -->
-<script src="js/app.js" type="module"></script>
+<script src="assets/js/core/app.js" type="module"></script>
 <!-- quran.js et surahs-data.js sont importés dynamiquement depuis app.js -->
 </body>
 </html>
