@@ -33,7 +33,7 @@ Options -Indexes
     Header always set Permissions-Policy "microphone=(self), camera=(), geolocation=(), payment=()"
 
     # Content Security Policy
-    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'sha256-ieoeWczDHkReVBsRBqaal5AFMlBtNjMzgwKvLqi/tSU='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; object-src 'none'; connect-src 'self'; worker-src 'none'; frame-ancestors 'none';"
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'sha256-ieoeWczDHkReVBsRBqaal5AFMlBtNjMzgwKvLqi/tSU='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob: https://cdn.islamic.network; object-src 'none'; connect-src 'self' https://api.alquran.cloud https://cdn.islamic.network; worker-src 'none'; frame-ancestors 'none';"
 
     # XSS Protection (legacy browsers)
     Header always set X-XSS-Protection "1; mode=block"

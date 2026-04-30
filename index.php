@@ -239,7 +239,21 @@ require_once __DIR__ . '/includes/views/modals/login.php';
                     <div class="quran-panel__body" id="quranPanelContent" dir="rtl" lang="ar" style="flex:1; overflow-y:auto; padding:var(--space-lg); font-size:2rem; line-height:2.8; text-align:right; background:var(--color-bg-dark); border-radius:0 0 var(--radius-lg) var(--radius-lg);">
                         <div style="color:var(--color-text-muted); font-size:1rem; margin-top:50px; text-align:center;">Sélectionnez une sourate ci-dessus.</div>
                     </div>
+
+                    <!-- Modal Tafsir (Relative au panel) -->
+                    <div id="modalTafsir" class="modal-overlay-inline" style="display:none;">
+                        <div class="modal-content-inline">
+                            <div class="modal-header">
+                                <h3 id="tafsirTitle">Tafsir</h3>
+                                <button class="modal-close" id="btnCloseTafsir">&times;</button>
+                            </div>
+                            <div id="tafsirBody" class="modal-body">
+                                Chargement...
+                            </div>
+                        </div>
+                    </div>
                 </div>
+
 
             </div>
         </div>
@@ -453,6 +467,8 @@ require_once __DIR__ . '/includes/views/modals/login.php';
 
     </aside>
 </div>
+
+
 
 <?php
 $useAppJs = true;

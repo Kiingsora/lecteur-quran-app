@@ -101,11 +101,18 @@ const api = {
             headers['X-CSRF-Token'] = state.csrfToken;
         }
         const res = await fetch(url, { ...options, headers, credentials: 'same-origin' });
+        if (res.status === 401) {
+            // Session expirée ou non authentifié
+            state.user = null;
+            $('loginModal').style.display = 'flex';
+            throw new Error('Session expirée. Veuillez vous reconnecter.');
+        }
         if (!res.ok) {
             const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
             throw new Error(err.error || `Erreur ${res.status}`);
         }
         return res.json();
+
     },
     get(url)         { return this._fetch(url); },
     post(url, body)  { return this._fetch(url, { method: 'POST',   body: JSON.stringify(body) }); },

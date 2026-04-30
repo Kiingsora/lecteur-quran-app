@@ -56,7 +56,7 @@ function setSecurityHeaders(): void {
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: SAMEORIGIN');
     header('Referrer-Policy: strict-origin-when-cross-origin');
-    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'sha256-ieoeWczDHkReVBsRBqaal5AFMlBtNjMzgwKvLqi/tSU='; style-src 'self' 'unsafe-inline'; media-src 'self' blob:; object-src 'none';");
+    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'sha256-ieoeWczDHkReVBsRBqaal5AFMlBtNjMzgwKvLqi/tSU='; style-src 'self' 'unsafe-inline'; media-src 'self' blob: https://cdn.islamic.network; connect-src 'self' https://api.alquran.cloud https://cdn.islamic.network; img-src 'self' data:; object-src 'none';");
 }
 
 // ─── JSON response helpers ───

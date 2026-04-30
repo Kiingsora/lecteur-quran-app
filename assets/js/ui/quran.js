@@ -45,7 +45,15 @@ export class QuranDisplay {
                 this._showTafsir(surahNum, ayahNum);
             }
         });
+        
+        const btnClose = document.getElementById('btnCloseTafsir');
+        if (btnClose) {
+            btnClose.addEventListener('click', () => {
+                document.getElementById('modalTafsir').style.display = 'none';
+            });
+        }
     }
+
 
     _playVerse(verseNum, btn) {
         const url = `https://cdn.islamic.network/quran/audio/128/ar.alafasy/${verseNum}.mp3`;
@@ -73,10 +81,36 @@ export class QuranDisplay {
         });
     }
 
-    _showTafsir(surah, ayah) {
-        // Pour l'instant on ouvre une recherche ou un lien externe pour plus de simplicité
-        window.open(`https://quran.com/${surah}:${ayah}?font=v1&translations=131`, '_blank');
+    async _showTafsir(surah, ayah) {
+        const modal = document.getElementById('modalTafsir');
+        const body  = document.getElementById('tafsirBody');
+        
+        if (!modal || !body) return;
+        
+        body.innerHTML = '<div class="spinner"></div>Chargement...';
+        modal.style.display = 'flex';
+
+        
+        try {
+            // On récupère le Tafsir Al-Jalalayn (Arabe) par défaut
+            const data = await this._apiFetch(`https://api.alquran.cloud/v1/ayah/${surah}:${ayah}/ar.jalalayn`);
+            const tafsir = data.text || "Aucune explication trouvée pour ce verset.";
+            
+            // On peut aussi essayer de récupérer une traduction si besoin, 
+            // mais ici on affiche le tafsir classique.
+            body.innerHTML = `<div style="text-align:right; font-family:var(--font-arabic); font-size:1.5rem; margin-bottom:1rem;" dir="rtl">${tafsir}</div>`;
+            
+            // Ajout d'une petite note ou traduction française si disponible dans les ayahs chargés
+            const currentAyah = this._ayahs.find(a => a.surah == surah && a.numberInSurah == ayah);
+            if (currentAyah && currentAyah.translation) {
+                body.innerHTML += `<hr style="border:0; border-top:1px solid rgba(212,168,71,0.1); margin:1rem 0;">
+                                   <div style="font-style:italic; color:var(--color-text-muted);">${currentAyah.translation}</div>`;
+            }
+        } catch (e) {
+            body.textContent = "Erreur lors du chargement du Tafsir. Veuillez réessayer.";
+        }
     }
+
 
 
     // ─────────────────────────────────────────────
@@ -346,11 +380,14 @@ export class QuranDisplay {
     // ─────────────────────────────────────────────
 
     async _apiFetch(url) {
-        const res = await fetch(url, { credentials: 'same-origin' });
+        const options = url.startsWith('http') ? {} : { credentials: 'same-origin' };
+        const res = await fetch(url, options);
         if (!res.ok) {
             const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
             throw new Error(err.error || `Erreur ${res.status}`);
         }
-        return res.json();
+        const json = await res.json();
+        return json.data || json; // alquran.cloud enveloppe dans .data
     }
+
 }
