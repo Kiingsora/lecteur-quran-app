@@ -1,6 +1,16 @@
 <!DOCTYPE html>
 <html lang="fr" dir="ltr">
 <head>
+    <?php
+    if (!function_exists('qiraah_asset')) {
+        function qiraah_asset(string $path): string {
+            $base = $GLOBALS['basePath'] ?? '';
+            $file = __DIR__ . '/../../' . ltrim($path, '/');
+            $version = is_file($file) ? filemtime($file) : time();
+            return $base . $path . '?v=' . $version;
+        }
+    }
+    ?>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Qira'ah - <?= $pageTitle ?? 'Correction de récitation' ?></title>
@@ -10,8 +20,9 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
 
-    <link rel="stylesheet" href="<?= $basePath ?? '' ?>assets/css/variables.css">
-    <link rel="stylesheet" href="<?= $basePath ?? '' ?>assets/css/style.css">
+    <link rel="stylesheet" href="<?= qiraah_asset('assets/css/variables.css') ?>">
+    <link rel="stylesheet" href="<?= qiraah_asset('assets/css/style.css') ?>">
+    <link rel="icon" type="image/svg+xml" href="<?= qiraah_asset('assets/favicon.svg') ?>">
 </head>
 <body>
 

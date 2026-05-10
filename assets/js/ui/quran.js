@@ -87,7 +87,11 @@ export class QuranDisplay {
         
         if (!modal || !body) return;
         
-        body.innerHTML = '<div class="spinner"></div>Chargement...';
+        body.replaceChildren();
+        const spinner = document.createElement('div');
+        spinner.className = 'spinner';
+        body.appendChild(spinner);
+        body.appendChild(document.createTextNode('Chargement...'));
         modal.style.display = 'flex';
 
         
@@ -98,13 +102,29 @@ export class QuranDisplay {
             
             // On peut aussi essayer de récupérer une traduction si besoin, 
             // mais ici on affiche le tafsir classique.
-            body.innerHTML = `<div style="text-align:right; font-family:var(--font-arabic); font-size:1.5rem; margin-bottom:1rem;" dir="rtl">${tafsir}</div>`;
+            body.replaceChildren();
+            const tafsirEl = document.createElement('div');
+            tafsirEl.dir = 'rtl';
+            tafsirEl.style.textAlign = 'right';
+            tafsirEl.style.fontFamily = 'var(--font-arabic)';
+            tafsirEl.style.fontSize = '1.5rem';
+            tafsirEl.style.marginBottom = '1rem';
+            tafsirEl.textContent = tafsir;
+            body.appendChild(tafsirEl);
             
             // Ajout d'une petite note ou traduction française si disponible dans les ayahs chargés
             const currentAyah = this._ayahs.find(a => a.surah == surah && a.numberInSurah == ayah);
             if (currentAyah && currentAyah.translation) {
-                body.innerHTML += `<hr style="border:0; border-top:1px solid rgba(212,168,71,0.1); margin:1rem 0;">
-                                   <div style="font-style:italic; color:var(--color-text-muted);">${currentAyah.translation}</div>`;
+                const separator = document.createElement('hr');
+                separator.style.border = '0';
+                separator.style.borderTop = '1px solid rgba(212,168,71,0.1)';
+                separator.style.margin = '1rem 0';
+                const translation = document.createElement('div');
+                translation.style.fontStyle = 'italic';
+                translation.style.color = 'var(--color-text-muted)';
+                translation.textContent = currentAyah.translation;
+                body.appendChild(separator);
+                body.appendChild(translation);
             }
         } catch (e) {
             body.textContent = "Erreur lors du chargement du Tafsir. Veuillez réessayer.";
@@ -227,9 +247,40 @@ export class QuranDisplay {
         return this._page;
     }
 
+    /** Versets chargés pour réutilisation par l'interface d'enregistrement */
+    getAyahs() {
+        return this._ayahs.map(ayah => ({ ...ayah }));
+    }
+
     // ─────────────────────────────────────────────
     // Rendu DOM (aucun innerHTML avec données API)
     // ─────────────────────────────────────────────
+
+    _renderArabicText(container, text, showTajweed) {
+        const source = String(text || '');
+        const pattern = /\[([a-zA-Z]+)(?::\d+)?\[([^\]]+)\]/g;
+        let cursor = 0;
+        let match;
+
+        const appendText = value => {
+            if (value) container.appendChild(document.createTextNode(value));
+        };
+
+        while ((match = pattern.exec(source)) !== null) {
+            appendText(source.slice(cursor, match.index));
+            if (showTajweed) {
+                const mark = document.createElement('tajweed');
+                mark.className = `tj-${match[1]}`;
+                mark.textContent = match[2];
+                container.appendChild(mark);
+            } else {
+                appendText(match[2]);
+            }
+            cursor = pattern.lastIndex;
+        }
+
+        appendText(source.slice(cursor));
+    }
 
     _render() {
         this._clear();
@@ -318,15 +369,7 @@ export class QuranDisplay {
                 
                 // Parse Tajweed custom bracket syntax: [class[text] or [class:id[text]
                 // Example: [h:1[ٱ] -> <tajweed class="tj-h">ٱ</tajweed>
-                let arabicHtml = ayah.text;
-                if (showTajweed) {
-                    arabicHtml = arabicHtml.replace(/\[([a-zA-Z]+)(?::\d+)?\[([^\]]+)\]/g, '<tajweed class="tj-$1">$2</tajweed>');
-                } else {
-                    arabicHtml = arabicHtml.replace(/\[([a-zA-Z]+)(?::\d+)?\[([^\]]+)\]/g, '$2');
-                }
-                
-                // Also wrap words for word-by-word tracking
-                rightCol.innerHTML = arabicHtml;
+                this._renderArabicText(rightCol, ayah.text, showTajweed);
                 
                 contentGrid.appendChild(leftCol);
                 contentGrid.appendChild(rightCol);

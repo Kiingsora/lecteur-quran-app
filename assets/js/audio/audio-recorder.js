@@ -13,6 +13,7 @@ export class AudioRecorder {
         this.analyser = null;
         this.audioContext = null;
         this._animFrameId = null;
+        this.startedAt = 0;
     }
 
     isRecording() {
@@ -23,12 +24,14 @@ export class AudioRecorder {
         this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         this.chunks = [];
 
-        // Detect supported mimeType
-        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-            ? 'audio/webm;codecs=opus'
-            : MediaRecorder.isTypeSupported('audio/webm')
-                ? 'audio/webm'
-                : '';
+        const preferredMimeTypes = [
+            'audio/ogg;codecs=opus',
+            'audio/webm;codecs=opus',
+            'audio/ogg',
+            'audio/webm',
+            'audio/mp4',
+        ];
+        const mimeType = preferredMimeTypes.find(type => MediaRecorder.isTypeSupported(type)) || '';
 
         this.mediaRecorder = new MediaRecorder(this.stream, mimeType ? { mimeType } : {});
 
@@ -38,6 +41,7 @@ export class AudioRecorder {
 
         this.mediaRecorder.start(250); // collect chunks every 250ms
         this.recording = true;
+        this.startedAt = performance.now();
 
         // Setup VU meter
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -60,11 +64,17 @@ export class AudioRecorder {
                 const blob = new Blob(this.chunks, {
                     type: this.mediaRecorder.mimeType || 'audio/webm'
                 });
+                const durationMs = this.startedAt ? performance.now() - this.startedAt : 0;
                 this.recording = false;
                 this._cleanup();
-                resolve({ blob });
+                resolve({ blob, durationMs });
             };
 
+            try {
+                this.mediaRecorder.requestData();
+            } catch (_) {
+                // Some browsers flush automatically on stop.
+            }
             this.mediaRecorder.stop();
         });
     }
@@ -107,5 +117,6 @@ export class AudioRecorder {
         if (this.vuMeterFillEl) {
             this.vuMeterFillEl.style.height = '0%';
         }
+        this.startedAt = 0;
     }
 }

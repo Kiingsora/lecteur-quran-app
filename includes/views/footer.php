@@ -3,7 +3,7 @@
 
 <!-- Scripts -->
 <?php if (isset($useAppJs) && $useAppJs): ?>
-<script src="<?= $basePath ?? '' ?>assets/js/core/app.js" type="module"></script>
+<script src="<?= function_exists('qiraah_asset') ? qiraah_asset('assets/js/core/app.js') : (($basePath ?? '') . 'assets/js/core/app.js') ?>" type="module"></script>
 <?php else: ?>
 <script>
     // Script générique pour les pages n'utilisant pas app.js complet

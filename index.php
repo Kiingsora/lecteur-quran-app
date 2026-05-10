@@ -126,53 +126,65 @@ require_once __DIR__ . '/includes/views/modals/login.php';
 
         <!-- ============ VUE ENREGISTREMENT (Apprenant) ============ -->
         <div id="viewLearner" style="display:none;">
-
-            <!-- Interface Split Screen -->
-            <div style="display:flex; gap:var(--space-xl); align-items:flex-start; min-height: 80vh;">
+            <div class="app-layout">
                 
-                <!-- Colonne Gauche : Enregistrement et Blocs -->
-                <div style="flex: 35; display:flex; flex-direction:column; gap:var(--space-lg);">
+                <!-- Zone d'enregistrement (Gauche) -->
+                <div class="learner-recording-panel">
 
-                    
-                    <!-- Bouton Push-to-Talk -->
-                    <div class="panel" style="text-align:center; padding:var(--space-2xl) var(--space-lg); position:sticky; top:20px; z-index:10;">
-                        <h3 style="color:var(--color-text-muted); margin-bottom:var(--space-md);">Enregistrement par verset</h3>
-                        <button class="btn--record" id="btnPttRecord" style="width:100px; height:100px; margin:0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;" title="Maintenez la barre ESPACE enfoncée pour enregistrer">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="iconMic"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
-                        </button>
-                        <p style="margin-top:var(--space-md); font-size:var(--font-size-sm); color:var(--color-gold);" id="pttStatus">Maintenez la barre <kbd style="background:var(--color-gold-dim); padding:2px 6px; border-radius:4px; color:var(--color-gold);">ESPACE</kbd> enfoncée pour parler</p>
-                    </div>
 
-                    <!-- Liste des Blocs -->
-                    <div class="panel" id="blocksPanel">
+
+                    <!-- Cartes de versets -->
+                    <div class="panel verse-recording-panel" id="blocksPanel">
                         <div class="panel__header">
-                            <h2 class="panel__title">Vos versets enregistrés</h2>
+                            <h2 class="panel__title">Versets à enregistrer</h2>
+                            <span id="verseProgressText" style="font-size:var(--font-size-xs);color:var(--color-text-muted);">Sélectionnez une sourate</span>
                         </div>
-                        <div id="blocksContainer" style="display:flex; flex-direction:column; gap:var(--space-sm); min-height: 200px;">
+                        <div class="verse-current-strip">
+                            <div>
+                                <div class="verse-current-strip__label" id="currentVerseLabel">Aucun verset actif</div>
+                                <div class="verse-current-strip__meta" id="currentVerseMeta">Choisissez une sourate et une plage de versets.</div>
+                            </div>
+                            <div class="verse-current-strip__bar">
+                                <div id="verseProgressBar" style="width:0%;"></div>
+                            </div>
+                        </div>
+                        <div id="blocksContainer" class="verse-recording-carousel">
                             <div class="empty-state" id="blocksEmptyState" style="padding:var(--space-xl); text-align:center;">
                                 <div class="empty-state__icon">🎙️</div>
-                                <div class="empty-state__text">Maintenez Espace pour commencer à réciter. Vos blocs s'afficheront ici.</div>
+                                <div class="empty-state__text">Sélectionnez une sourate pour préparer les cartes de versets.</div>
                             </div>
-                            <!-- Les blocs audio s'ajouteront ici -->
                         </div>
+                    </div>
+
+                    <!-- Bouton Push-to-Talk tactile -->
+                    <div class="recording-dock" id="recordingDock">
+                        <div class="record-mode-switcher" aria-label="Mode d'enregistrement">
+                            <button class="record-mode-switcher__btn record-mode-switcher__btn--active" id="recordModeHold" type="button">Maintenir</button>
+                            <button class="record-mode-switcher__btn" id="recordModeToggle" type="button">Appuyer</button>
+                        </div>
+                        <button class="btn--record" id="btnPttRecord" style="width:100px; height:100px; margin:0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;" title="Enregistrer le verset actif">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="iconMic"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
+                        </button>
+                        <p id="pttStatus">Choisissez un verset, puis maintenez le bouton pour enregistrer.</p>
                     </div>
 
                     <!-- Soumettre -->
                     <div id="panelSubmit" style="display:none; text-align:center; padding:var(--space-lg);">
-                        <button class="btn btn--gold btn--lg" id="btnSubmitReview" style="width:100%;">
+                        <button class="btn btn--gold btn--lg" id="btnSubmitReview" style="width:100%;" disabled>
                             <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor" style="display:inline;vertical-align:middle;margin-right:6px;"><path d="M2 16l16-7L2 2v5.5l11 1.5-11 1.5z"/></svg>
                             Envoyer la récitation complète
                         </button>
                     </div>
                 </div>
 
-                <!-- Colonne Droite : Coran Dynamique -->
-                <div class="panel" id="panelQuran" style="flex: 65; display:flex; flex-direction:column; position:sticky; top:20px; height:calc(100vh - 120px);">
+                <!-- Zone Lecteur Coran (Droite) -->
+                <div class="panel learner-quran-panel" id="panelQuran">
+
 
                     
                     <!-- Choix de la Sourate -->
                     <div class="panel__header" style="flex-direction:column; align-items:stretch; gap:var(--space-md); padding-bottom:var(--space-md); border-bottom:1px solid var(--border-panel);">
-                        <h2 class="panel__title">Texte Coranique</h2>
+                        <h2 class="panel__title">Préparer la session</h2>
                         
                         <div class="surah-selector" style="display:flex; flex-wrap:wrap; gap:var(--space-sm); background:transparent; padding:0; border:none;">
                             <div class="surah-selector__group" style="flex:1; min-width:150px;">
@@ -191,13 +203,19 @@ require_once __DIR__ . '/includes/views/modals/login.php';
                             </div>
                         </div>
 
-                        
+                        <div class="learner-font-controls" aria-label="Taille du texte coranique">
+                            <span>Taille</span>
+                            <button class="btn btn--ghost" id="btnFontDec" type="button">A-</button>
+                            <button class="btn btn--ghost" id="btnFontInc" type="button">A+</button>
+                        </div>
+
                         <!-- Toolbar des options de lecture -->
-                        <div style="background:var(--color-bg-dark); padding:var(--space-sm) var(--space-md); border-radius:var(--radius-sm); border:1px solid var(--border-panel); display:flex; flex-direction:column; gap:var(--space-md);">
+                        <div class="quran-options-toolbar">
                             
                             <!-- Tab: Affichage -->
-                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:var(--space-sm);">
-                                <div style="display:flex; gap:var(--space-md); align-items:center;">
+                            <div class="quran-options-row">
+                                <div class="quran-options-group">
+
                                     <label style="display:flex; align-items:center; gap:var(--space-xs); font-size:var(--font-size-sm); cursor:pointer; color:var(--color-text);">
                                         <input type="checkbox" id="optTajweed" checked> Couleurs Tajweed
                                     </label>
@@ -209,17 +227,13 @@ require_once __DIR__ . '/includes/views/modals/login.php';
                                     </label>
                                 </div>
                                 
-                                <div style="display:flex; align-items:center; gap:var(--space-sm);">
-                                    <span style="font-size:var(--font-size-xs); color:var(--color-text-muted);">Taille Texte:</span>
-                                    <button class="btn btn--ghost" id="btnFontDec" style="padding:2px 8px; font-size:12px;">A-</button>
-                                    <button class="btn btn--ghost" id="btnFontInc" style="padding:2px 8px; font-size:16px;">A+</button>
-                                </div>
                             </div>
                             
                             <hr style="border:0; border-top:1px solid rgba(255,255,255,0.05); margin:0;">
 
                             <!-- Tab: Apprentissage -->
-                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:var(--space-sm);">
+                            <div class="quran-options-row">
+
                                 <label style="display:flex; align-items:center; gap:var(--space-xs); font-size:var(--font-size-sm); cursor:pointer; color:var(--color-text);">
                                     <input type="checkbox" id="optSingleVerse" checked>
                                     Cibler uniquement le verset en cours
@@ -373,6 +387,41 @@ require_once __DIR__ . '/includes/views/modals/login.php';
             <div style="display:flex;gap:var(--space-md);justify-content:center;padding:var(--space-lg);">
                 <button class="btn btn--green btn--lg" id="btnSaveCorrection">Sauvegarder</button>
                 <button class="btn btn--gold btn--lg" id="btnExportJson">Exporter JSON</button>
+            </div>
+        </div>
+
+        <!-- ============ RETOUR PROFESSEUR (Apprenant) ============ -->
+        <div id="viewFeedback" style="display:none;">
+            <div class="page-header" style="margin-bottom:var(--space-xl);">
+                <div>
+                    <h2 class="page-title">Retour du professeur</h2>
+                    <p class="page-subtitle" id="feedbackSubtitle">Correction reçue</p>
+                </div>
+            </div>
+
+            <div class="feedback-layout">
+                <div class="panel">
+                    <div class="panel__header">
+                        <h2 class="panel__title">Verdict</h2>
+                    </div>
+                    <div class="feedback-verdict" id="feedbackVerdict">En attente</div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel__header">
+                        <h2 class="panel__title">Commentaire</h2>
+                    </div>
+                    <div class="feedback-comment" id="feedbackComment">Aucun commentaire pour le moment.</div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel__header">
+                        <h2 class="panel__title">Points signalés</h2>
+                    </div>
+                    <div class="correction-list" id="feedbackPoints">
+                        <div class="empty-state"><div class="empty-state__text">Aucun point signalé.</div></div>
+                    </div>
+                </div>
             </div>
         </div>
 
