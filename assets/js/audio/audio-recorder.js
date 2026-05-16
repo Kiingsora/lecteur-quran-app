@@ -14,24 +14,42 @@ export class AudioRecorder {
         this.audioContext = null;
         this._animFrameId = null;
         this.startedAt = 0;
+        this.lastTrackLabel = '';
+        this.lastTrackSettings = null;
+        this.lastMimeType = '';
     }
 
     isRecording() {
         return this.recording;
     }
 
-    async start() {
-        this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    async start(deviceId = '') {
+        const audioConstraints = {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+        };
+        if (deviceId) {
+            audioConstraints.deviceId = { exact: deviceId };
+        }
+
+        this.stream = await navigator.mediaDevices.getUserMedia({
+            audio: audioConstraints,
+        });
         this.chunks = [];
+        const [track] = this.stream.getAudioTracks();
+        this.lastTrackLabel = track?.label || '';
+        this.lastTrackSettings = track?.getSettings?.() || null;
 
         const preferredMimeTypes = [
-            'audio/ogg;codecs=opus',
             'audio/webm;codecs=opus',
-            'audio/ogg',
             'audio/webm',
             'audio/mp4',
+            'audio/ogg;codecs=opus',
+            'audio/ogg',
         ];
         const mimeType = preferredMimeTypes.find(type => MediaRecorder.isTypeSupported(type)) || '';
+        this.lastMimeType = mimeType || 'browser-default';
 
         this.mediaRecorder = new MediaRecorder(this.stream, mimeType ? { mimeType } : {});
 
@@ -51,6 +69,14 @@ export class AudioRecorder {
         source.connect(this.analyser);
 
         this._updateVuMeter();
+    }
+
+    getDiagnostics() {
+        return {
+            trackLabel: this.lastTrackLabel,
+            trackSettings: this.lastTrackSettings,
+            mimeType: this.mediaRecorder?.mimeType || this.lastMimeType,
+        };
     }
 
     stop() {

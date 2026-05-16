@@ -165,7 +165,17 @@ require_once __DIR__ . '/includes/views/modals/login.php';
                         <button class="btn--record" id="btnPttRecord" style="width:100px; height:100px; margin:0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;" title="Enregistrer le verset actif">
                             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="iconMic"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
                         </button>
-                        <p id="pttStatus">Choisissez un verset, puis maintenez le bouton pour enregistrer.</p>
+                        <div class="recording-dock__status">
+                            <div class="recording-level" aria-hidden="true">
+                                <div class="recording-level__fill" id="vuMeterFill"></div>
+                            </div>
+                            <div class="recording-dock__status-text">
+                                <select class="form-input recording-mic-select" id="micDeviceSelect" aria-label="Micro à utiliser">
+                                    <option value="">Micro par défaut</option>
+                                </select>
+                                <p id="pttStatus">Choisissez un verset, puis maintenez le bouton pour enregistrer.</p>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Soumettre -->
@@ -207,6 +217,11 @@ require_once __DIR__ . '/includes/views/modals/login.php';
                             <span>Taille</span>
                             <button class="btn btn--ghost" id="btnFontDec" type="button">A-</button>
                             <button class="btn btn--ghost" id="btnFontInc" type="button">A+</button>
+                            <div class="learner-follow-controls" aria-label="Vitesse du suivi de récitation">
+                                <label for="followSpeed">Suivi</label>
+                                <input type="range" id="followSpeed" min="0.6" max="1.6" step="0.05" value="1">
+                                <span id="followSpeedLabel">1×</span>
+                            </div>
                         </div>
 
                         <!-- Toolbar des options de lecture -->
@@ -331,6 +346,10 @@ require_once __DIR__ . '/includes/views/modals/login.php';
                     <button class="category-btn category-btn--waqf"    data-category="waqf">Waqf</button>
                     <button class="category-btn category-btn--fluidite"data-category="fluidite">Fluidité</button>
                 </div>
+                <div class="quick-correction">
+                    <div class="quick-correction__label">Corrections rapides</div>
+                    <div class="quick-correction__bar" id="quickCorrectionBar"></div>
+                </div>
             </div>
 
             <!-- Commentaire global -->
@@ -412,6 +431,15 @@ require_once __DIR__ . '/includes/views/modals/login.php';
                         <h2 class="panel__title">Commentaire</h2>
                     </div>
                     <div class="feedback-comment" id="feedbackComment">Aucun commentaire pour le moment.</div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel__header">
+                        <h2 class="panel__title">Plan de révision</h2>
+                    </div>
+                    <div class="revision-plan" id="feedbackRevisionPlan">
+                        <div class="empty-state"><div class="empty-state__text">Le plan sera généré après correction.</div></div>
+                    </div>
                 </div>
 
                 <div class="panel">

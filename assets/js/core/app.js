@@ -10,8 +10,9 @@ import { SilenceDetector} from '../audio/silence-detector.js';
 import { PinManager }     from '../managers/pin-manager.js';
 import { SegmentManager } from '../managers/segment-manager.js';
 import { Reviewer }       from '../ui/reviewer.js';
-import { QuranDisplay }   from '../ui/quran.js?v=verse-cards-2';
+import { QuranDisplay }   from '../ui/quran.js?v=verse-cards-3';
 import { SURAHS, getSurah } from '../data/surahs-data.js';
+import { buildRecitationTiming, getWordIndexAtTime } from '../quran/recitation-timing.js';
 
 // ─── Global state ───
 const state = {
@@ -29,6 +30,7 @@ const state = {
     versePlan: [],
     currentVerseIndex: 0,
     recordMode: 'hold',
+    followSpeed: 1,
 
     // Sourate récitée (sélectionnée par l'apprenant)
     surahId:  null,  // entier 1-114
@@ -52,9 +54,82 @@ let reviewerPlayer, reviewerWaveform;
 let silenceDetector, pinManager, segmentManager, reviewer;
 let quranDisplay; // QuranDisplay instance
 const verseReferenceAudio = new Audio();
+const LEARNER_SESSION_STORAGE_PREFIX = 'qiraah:learner-session:';
+const QUICK_CORRECTION_PRESETS = [
+    { category: 'makhraj', label: 'Sortie de lettre', comment: 'Reprendre la sortie de cette lettre lentement, puis l’intégrer dans le verset complet.' },
+    { category: 'madd', label: 'Allongement', comment: 'Allongement à stabiliser : respecter la durée avant de poursuivre.' },
+    { category: 'ghunnah', label: 'Ghunnah', comment: 'Ghunnah à rendre plus nette, sans précipiter la transition.' },
+    { category: 'waqf', label: 'Arrêt', comment: 'Arrêt ou reprise à corriger : reprendre depuis le mot précédent.' },
+    { category: 'fluidite', label: 'Fluidité', comment: 'Réciter ce passage plus régulièrement, sans rupture de rythme.' },
+];
+let verseReferencePlaybackToken = 0;
+let activeVerseReferenceButton = null;
+let learnerFollowFrame = null;
+let learnerFollowStartedAt = 0;
+let learnerFollowDurationMs = 0;
+let learnerFollowBaseDurationMs = 0;
+let learnerFollowVerseId = null;
+let recordedVersePlayback = null;
+let quranLoadToken = 0;
 
 // ─── DOM helpers ───
 const $ = id => document.getElementById(id);
+
+function getLearnerSessionKey() {
+    const userKey = state.user?.username || 'anonymous';
+    return `${LEARNER_SESSION_STORAGE_PREFIX}${userKey}`;
+}
+
+function saveLearnerSession() {
+    if (state.user?.role !== 'learner' || !state.surahId) return;
+    const payload = {
+        surahId: state.surahId,
+        ayahFrom: state.ayahFrom || 1,
+        ayahTo: state.ayahTo || null,
+        currentVerseIndex: state.currentVerseIndex || 0,
+        followSpeed: state.followSpeed,
+        updatedAt: new Date().toISOString(),
+    };
+    try {
+        localStorage.setItem(getLearnerSessionKey(), JSON.stringify(payload));
+    } catch (error) {
+        logError('save learner session', error);
+    }
+}
+
+function restoreLearnerSession() {
+    if (state.user?.role !== 'learner') return false;
+    let payload = null;
+    try {
+        payload = JSON.parse(localStorage.getItem(getLearnerSessionKey()) || 'null');
+    } catch (error) {
+        logError('restore learner session', error);
+        return false;
+    }
+
+    const surah = getSurah(payload?.surahId);
+    if (!surah) return false;
+
+    const from = Math.max(1, Math.min(parseInt(payload.ayahFrom, 10) || 1, surah.ayahs));
+    const rawTo = parseInt(payload.ayahTo, 10);
+    const to = Number.isInteger(rawTo) && rawTo >= from ? Math.min(rawTo, surah.ayahs) : null;
+
+    state.surahId = surah.id;
+    state.ayahFrom = from;
+    state.ayahTo = to;
+    state.currentVerseIndex = Math.max(0, parseInt(payload.currentVerseIndex, 10) || 0);
+    const legacySpeed = payload?.['kara' + 'okeSpeed'];
+    const speed = parseFloat(payload.followSpeed ?? legacySpeed);
+    if (Number.isFinite(speed)) state.followSpeed = Math.max(0.6, Math.min(1.6, speed));
+
+    if ($('surahSelect')) $('surahSelect').value = String(surah.id);
+    if ($('ayahFrom')) $('ayahFrom').value = String(from);
+    if ($('ayahTo')) $('ayahTo').value = to ? String(to) : '';
+    if ($('followSpeed')) $('followSpeed').value = String(state.followSpeed);
+    if ($('followSpeedLabel')) $('followSpeedLabel').textContent = `${state.followSpeed.toFixed(2).replace(/\.?0+$/, '')}×`;
+
+    return true;
+}
 
 // ─── Toast ───
 function showToast(msg, type = 'success') {
@@ -82,6 +157,12 @@ function formatDuration(s) {
     if (!s || !isFinite(s)) return '0s';
     if (s < 60) return `${Math.round(s)}s`;
     return `${Math.floor(s/60)}m${Math.round(s%60)}s`;
+}
+
+function formatShortDate(date, offsetDays = 0) {
+    const next = new Date(date);
+    next.setDate(next.getDate() + offsetDays);
+    return next.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' });
 }
 
 // ─── Sanitize display strings (escapes ', ", <, >, &) ───
@@ -423,7 +504,9 @@ function prepareVersePlanFromSelection({ preserve = true } = {}) {
             blob: null,
             buffer: null,
             url: null,
+            replayUrl: null,
             duration: 0,
+            followTiming: null,
         });
     }
 
@@ -470,6 +553,9 @@ function hydrateVersePlanFromAyahs(ayahs) {
         verse.text = data.text || verse.text;
         verse.translation = data.translation || verse.translation;
         verse.phonetics = data.phonetics || verse.phonetics;
+        verse.followTiming = buildRecitationTiming(verse.text || '', {
+            durationMs: verse.duration ? verse.duration * 1000 : 0,
+        });
     });
 }
 
@@ -479,58 +565,282 @@ function renderArabicWords(container, text, showTajweed = true) {
     let cursor = 0;
     let match;
     let wordIndex = 0;
+    let currentWord = null;
 
-    const appendWords = value => {
+    const closeWord = () => {
+        currentWord = null;
+    };
+
+    const ensureWord = () => {
+        if (!currentWord) {
+            currentWord = document.createElement('span');
+            currentWord.className = 'quran-word';
+            currentWord.dataset.word = String(wordIndex++);
+            container.appendChild(currentWord);
+        }
+        return currentWord;
+    };
+
+    const appendTextParts = value => {
         value.split(/(\s+)/).forEach(part => {
             if (!part) return;
             if (/^\s+$/.test(part)) {
+                closeWord();
                 container.appendChild(document.createTextNode(part));
                 return;
             }
-            const word = document.createElement('span');
-            word.className = 'quran-word';
-            word.dataset.word = String(wordIndex++);
-            word.textContent = part;
-            container.appendChild(word);
+            ensureWord().appendChild(document.createTextNode(part));
         });
     };
 
     while ((match = pattern.exec(source)) !== null) {
-        appendWords(source.slice(cursor, match.index));
+        appendTextParts(source.slice(cursor, match.index));
         if (showTajweed) {
             const mark = document.createElement('tajweed');
             mark.className = `tj-${match[1]}`;
             mark.textContent = match[2];
-            container.appendChild(mark);
+            ensureWord().appendChild(mark);
         } else {
-            appendWords(match[2]);
+            appendTextParts(match[2]);
         }
         cursor = pattern.lastIndex;
     }
 
-    appendWords(source.slice(cursor));
+    appendTextParts(source.slice(cursor));
 }
 
-function playVerseReference(verse, button) {
+function isExpectedMediaAbort(error) {
+    return error?.name === 'AbortError';
+}
+
+function getVerseTiming(verse, durationMs = null) {
+    if (!verse) return { words: [], totalMs: 0 };
+    const sourceDuration = Number(durationMs) || (verse.duration ? verse.duration * 1000 : 0);
+    const timing = buildRecitationTiming(verse.text || '', { durationMs: sourceDuration });
+    verse.followTiming = timing;
+    return timing;
+}
+
+function clearLearnerFollowWords() {
+    $('blocksContainer')?.querySelectorAll('.quran-word--active, .quran-word--upcoming').forEach(word => {
+        word.classList.remove('quran-word--active', 'quran-word--upcoming');
+    });
+    $('blocksContainer')?.querySelectorAll('.verse-record-card--following').forEach(card => {
+        card.classList.remove('verse-record-card--following');
+    });
+}
+
+function paintLearnerFollowWord(verseId, activeIndex) {
+    const card = $('blocksContainer')?.querySelector(`.verse-record-card[data-verse-id="${CSS.escape(verseId)}"]`);
+    if (!card) return;
+    const words = Array.from(card.querySelectorAll('.quran-word'));
+    if (!words.length) return;
+    const safeIndex = Math.min(words.length - 1, Math.max(0, activeIndex));
+    card.classList.add('verse-record-card--following');
+    words.forEach((word, index) => {
+        word.classList.toggle('quran-word--active', index === safeIndex);
+        word.classList.toggle('quran-word--upcoming', index > safeIndex);
+    });
+}
+
+function startLearnerFollow(verse, durationMs = null) {
+    if (!verse?.id) return;
+    stopLearnerFollow({ clear: true });
+    const timing = getVerseTiming(verse, durationMs);
+    learnerFollowVerseId = verse.id;
+    learnerFollowStartedAt = performance.now();
+    learnerFollowBaseDurationMs = Math.max(1000, timing.totalMs || durationMs || 0);
+    learnerFollowDurationMs = Math.max(700, learnerFollowBaseDurationMs / state.followSpeed);
+
+    const tick = now => {
+        const elapsedMs = (now - learnerFollowStartedAt) * state.followSpeed;
+        const activeIndex = getWordIndexAtTime(timing, elapsedMs);
+        paintLearnerFollowWord(learnerFollowVerseId, activeIndex);
+        learnerFollowFrame = requestAnimationFrame(tick);
+    };
+    learnerFollowFrame = requestAnimationFrame(tick);
+}
+
+function stopLearnerFollow({ clear = false } = {}) {
+    if (learnerFollowFrame) cancelAnimationFrame(learnerFollowFrame);
+    learnerFollowFrame = null;
+    learnerFollowVerseId = null;
+    learnerFollowBaseDurationMs = 0;
+    if (clear) clearLearnerFollowWords();
+}
+
+function updateLearnerFollowSpeed(speed) {
+    state.followSpeed = Math.max(0.6, Math.min(1.6, Number(speed) || 1));
+    if ($('followSpeedLabel')) {
+        $('followSpeedLabel').textContent = `${state.followSpeed.toFixed(2).replace(/\.?0+$/, '')}×`;
+    }
+    verseReferenceAudio.playbackRate = state.followSpeed;
+    if (learnerFollowFrame && learnerFollowBaseDurationMs > 0) {
+        const now = performance.now();
+        const ratio = Math.min(0.995, Math.max(0, (now - learnerFollowStartedAt) / learnerFollowDurationMs));
+        learnerFollowDurationMs = Math.max(700, learnerFollowBaseDurationMs / state.followSpeed);
+        learnerFollowStartedAt = now - ratio * learnerFollowDurationMs;
+    }
+    saveLearnerSession();
+}
+
+function stopRecordedVersePlayback({ clearFollow = true } = {}) {
+    if (!recordedVersePlayback) return;
+
+    if (recordedVersePlayback.audio) {
+        recordedVersePlayback.audio.onended = null;
+        recordedVersePlayback.audio.onerror = null;
+        recordedVersePlayback.audio.pause();
+        recordedVersePlayback.audio.currentTime = 0;
+    }
+
+    if (recordedVersePlayback.source) {
+        try {
+            recordedVersePlayback.source.onended = null;
+            recordedVersePlayback.source.stop();
+        } catch (_) {
+            // Already stopped.
+        }
+        try {
+            recordedVersePlayback.source.disconnect();
+        } catch (_) {
+            // Already disconnected.
+        }
+    }
+
+    if (recordedVersePlayback.context) {
+        recordedVersePlayback.context.close().catch(() => {});
+    }
+
+    if (recordedVersePlayback.button) {
+        recordedVersePlayback.button.textContent = 'Réécouter';
+        recordedVersePlayback.button.classList.remove('is-playing');
+    }
+    recordedVersePlayback = null;
+    if (clearFollow) stopLearnerFollow({ clear: true });
+}
+
+async function playRecordedVerse(verse, button) {
+    if (!verse?.buffer) {
+        showToast('Aucun enregistrement pour ce verset', 'error');
+        return;
+    }
+
+    if (recordedVersePlayback?.verseId === verse.id) {
+        stopRecordedVersePlayback();
+        return;
+    }
+
+    stopRecordedVersePlayback();
+
+    const replayUrls = [verse.url, ensureVerseReplayUrl(verse)].filter(Boolean);
+    if (!replayUrls.length) {
+        showToast('Impossible de préparer la réécoute', 'error');
+        return;
+    }
+
+    const audio = new Audio();
+    let replayUrlIndex = 0;
+    const prepareAudio = () => {
+        audio.src = replayUrls[replayUrlIndex];
+        audio.preload = 'auto';
+        audio.muted = false;
+        audio.volume = 1;
+        audio.playbackRate = 1;
+    };
+    const tryPlay = async () => {
+        prepareAudio();
+        const playPromise = audio.play();
+        if (playPromise) await playPromise;
+    };
+
+    recordedVersePlayback = { verseId: verse.id, audio, button };
+    if (button) {
+        button.textContent = 'Pause';
+        button.classList.add('is-playing');
+    }
+
+    startLearnerFollow(verse, verse.buffer.duration * 1000);
+    audio.onended = () => stopRecordedVersePlayback({ clearFollow: true });
+    audio.onerror = () => {
+        replayUrlIndex += 1;
+        if (replayUrlIndex < replayUrls.length && recordedVersePlayback?.audio === audio) {
+            tryPlay().catch(error => {
+                logError('recorded verse audio fallback', error);
+                showToast('Impossible de relire cet enregistrement', 'error');
+                stopRecordedVersePlayback({ clearFollow: true });
+            });
+            return;
+        }
+        logError('recorded verse audio', audio.error || new Error('HTMLAudioElement playback failed'));
+        showToast('Impossible de relire votre enregistrement', 'error');
+        stopRecordedVersePlayback({ clearFollow: true });
+    };
+
+    try {
+        await tryPlay();
+    } catch (error) {
+        replayUrlIndex += 1;
+        if (replayUrlIndex < replayUrls.length && recordedVersePlayback?.audio === audio) {
+            try {
+                await tryPlay();
+                return;
+            } catch (fallbackError) {
+                error = fallbackError;
+            }
+        }
+        if (!isExpectedMediaAbort(error)) {
+            logError('recorded verse audio', error);
+            showToast('Lecture de votre enregistrement bloquée. Réessayez après un clic sur la page.', 'error');
+        }
+        if (recordedVersePlayback?.audio === audio) stopRecordedVersePlayback({ clearFollow: true });
+    }
+}
+
+async function playVerseReference(verse, button) {
     if (!verse?.number) {
         showToast('Audio du verset en cours de chargement', 'error');
         return;
     }
     const url = `https://cdn.islamic.network/quran/audio/128/ar.alafasy/${verse.number}.mp3`;
-    const resetButton = () => {
-        if (button) button.textContent = 'Écouter';
+    const token = ++verseReferencePlaybackToken;
+    const resetButton = target => {
+        if (target) target.textContent = 'Écouter';
     };
 
     if (verseReferenceAudio.src === url && !verseReferenceAudio.paused) {
         verseReferenceAudio.pause();
-        resetButton();
+        stopLearnerFollow({ clear: true });
+        resetButton(button);
         return;
     }
 
+    stopRecordedVersePlayback();
+    if (activeVerseReferenceButton && activeVerseReferenceButton !== button) {
+        resetButton(activeVerseReferenceButton);
+    }
+    activeVerseReferenceButton = button || null;
+    verseReferenceAudio.pause();
+    verseReferenceAudio.playbackRate = state.followSpeed;
     verseReferenceAudio.src = url;
-    verseReferenceAudio.play().catch(err => logError('verse audio', err));
     if (button) button.textContent = 'Pause';
-    verseReferenceAudio.onended = resetButton;
+    startLearnerFollow(verse);
+    verseReferenceAudio.onended = () => {
+        if (token !== verseReferencePlaybackToken) return;
+        stopLearnerFollow({ clear: true });
+        resetButton(button);
+    };
+
+    try {
+        const playPromise = verseReferenceAudio.play();
+        if (playPromise) await playPromise;
+    } catch (error) {
+        if (!isExpectedMediaAbort(error)) logError('verse audio', error);
+        if (token === verseReferencePlaybackToken) {
+            stopLearnerFollow({ clear: true });
+            resetButton(button);
+        }
+    }
 }
 
 function copyVerseText(verse) {
@@ -554,6 +864,7 @@ function selectVerseIndex(index) {
     if (verse && quranDisplay) {
         quranDisplay.highlightVerse(verse.surah, verse.ayah);
     }
+    stopRecordedVersePlayback();
 
     const activeCard = $('blocksContainer')?.querySelector('.verse-record-card--active');
     if (activeCard) activeCard.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
@@ -562,11 +873,15 @@ function selectVerseIndex(index) {
 async function clearVerseRecording(verseId) {
     const verse = state.versePlan.find(item => item.id === verseId);
     if (!verse) return;
+    if (recordedVersePlayback?.verseId === verse.id) stopRecordedVersePlayback();
     if (verse.url) URL.revokeObjectURL(verse.url);
+    if (verse.replayUrl) URL.revokeObjectURL(verse.replayUrl);
     verse.blob = null;
     verse.buffer = null;
     verse.url = null;
+    verse.replayUrl = null;
     verse.duration = 0;
+    verse.followTiming = buildRecitationTiming(verse.text || '');
     await rebuildAudioFromBlocks();
     renderVerseCards();
     updateVerseProgress();
@@ -586,10 +901,15 @@ function renderVerseCards() {
 
     if (emptyState) emptyState.style.display = 'none';
 
-    state.versePlan.forEach((verse, index) => {
+    const activeVerse = getCurrentVerse();
+    const activeIndex = state.currentVerseIndex;
+    const visibleVerses = activeVerse ? [{ verse: activeVerse, index: activeIndex }] : [];
+
+    visibleVerses.forEach(({ verse, index }) => {
         const card = document.createElement('article');
         card.className = `verse-record-card${index === state.currentVerseIndex ? ' verse-record-card--active' : ''}${verse.buffer ? ' verse-record-card--done' : ''}`;
         card.dataset.verseId = verse.id;
+        card.dataset.verseIndex = String(index);
 
         const header = document.createElement('div');
         header.className = 'verse-record-card__header';
@@ -607,6 +927,33 @@ function renderVerseCards() {
         header.appendChild(label);
         header.appendChild(status);
         card.appendChild(header);
+
+        const mobileNav = document.createElement('div');
+        mobileNav.className = 'verse-record-card__mobile-nav';
+
+        const prevBtn = document.createElement('button');
+        prevBtn.type = 'button';
+        prevBtn.className = 'btn btn--ghost btn--icon';
+        prevBtn.textContent = '←';
+        prevBtn.title = 'Verset précédent';
+        prevBtn.disabled = index === 0;
+        prevBtn.addEventListener('click', () => selectVerseIndex(index - 1));
+
+        const position = document.createElement('span');
+        position.textContent = `${index + 1}/${state.versePlan.length}`;
+
+        const nextBtn = document.createElement('button');
+        nextBtn.type = 'button';
+        nextBtn.className = 'btn btn--ghost btn--icon';
+        nextBtn.textContent = '→';
+        nextBtn.title = 'Verset suivant';
+        nextBtn.disabled = index === state.versePlan.length - 1;
+        nextBtn.addEventListener('click', () => selectVerseIndex(index + 1));
+
+        mobileNav.appendChild(prevBtn);
+        mobileNav.appendChild(position);
+        mobileNav.appendChild(nextBtn);
+        card.appendChild(mobileNav);
 
         const arabic = document.createElement('div');
         arabic.className = 'verse-record-card__arabic';
@@ -628,12 +975,14 @@ function renderVerseCards() {
 
         const recording = document.createElement('div');
         recording.className = 'verse-record-card__recording';
-        if (verse.url) {
-            const audio = document.createElement('audio');
-            audio.src = verse.url;
-            audio.controls = true;
-            audio.preload = 'metadata';
-            recording.appendChild(audio);
+        if (verse.buffer) {
+            const recordingMeta = document.createElement('span');
+            const sizeKb = verse.blob?.size ? `${Math.max(1, Math.round(verse.blob.size / 1024))} Ko` : 'taille inconnue';
+            const stats = verse.audioStats
+                ? ` | signal ${Math.round(verse.audioStats.rms * 1000) / 1000}/${Math.round(verse.audioStats.peak * 1000) / 1000}`
+                : '';
+            recordingMeta.textContent = `Ton enregistrement : ${formatDuration(verse.duration || verse.buffer.duration)} | ${sizeKb}${stats}`;
+            recording.appendChild(recordingMeta);
         } else {
             recording.textContent = index === state.currentVerseIndex
                 ? 'Prêt à enregistrer ce verset.'
@@ -644,10 +993,19 @@ function renderVerseCards() {
         const actions = document.createElement('div');
         actions.className = 'verse-record-card__actions';
 
+        if (verse.buffer) {
+            const replayBtn = document.createElement('button');
+            replayBtn.type = 'button';
+            replayBtn.className = 'btn btn--gold verse-record-card__replay';
+            replayBtn.textContent = 'Réécouter';
+            replayBtn.addEventListener('click', () => playRecordedVerse(verse, replayBtn));
+            actions.appendChild(replayBtn);
+        }
+
         const listenBtn = document.createElement('button');
         listenBtn.type = 'button';
         listenBtn.className = 'btn btn--ghost';
-        listenBtn.textContent = 'Écouter';
+        listenBtn.textContent = 'Modèle';
         listenBtn.addEventListener('click', () => playVerseReference(verse, listenBtn));
         actions.appendChild(listenBtn);
 
@@ -667,7 +1025,7 @@ function renderVerseCards() {
 
         const selectBtn = document.createElement('button');
         selectBtn.type = 'button';
-        selectBtn.className = 'btn btn--ghost';
+        selectBtn.className = 'btn btn--ghost verse-record-card__select';
         selectBtn.textContent = index === state.currentVerseIndex ? 'Actif' : 'Choisir';
         selectBtn.addEventListener('click', () => selectVerseIndex(index));
         actions.appendChild(selectBtn);
@@ -712,6 +1070,7 @@ function updateVerseProgress() {
     }
     if ($('panelSubmit')) $('panelSubmit').style.display = total && recorded === total ? 'block' : 'none';
     if ($('btnSubmitReview')) $('btnSubmitReview').disabled = !total || recorded !== total;
+    saveLearnerSession();
 }
 
 // ─── Audio loading (avec validation taille + timeout) ───
@@ -752,6 +1111,77 @@ async function loadAudioBuffer(blob) {
     } finally {
         ctx.close();
     }
+}
+
+function audioBufferToWavBlob(buffer) {
+    const channelCount = Math.max(1, buffer.numberOfChannels || 1);
+    const sampleRate = buffer.sampleRate;
+    const bytesPerSample = 2;
+    const blockAlign = channelCount * bytesPerSample;
+    const dataLength = buffer.length * blockAlign;
+    const wav = new ArrayBuffer(44 + dataLength);
+    const view = new DataView(wav);
+    const channels = Array.from({ length: channelCount }, (_, channel) =>
+        buffer.getChannelData(Math.min(channel, buffer.numberOfChannels - 1))
+    );
+    const writeString = (offset, value) => {
+        for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i));
+    };
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + dataLength, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, channelCount, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * blockAlign, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bytesPerSample * 8, true);
+    writeString(36, 'data');
+    view.setUint32(40, dataLength, true);
+
+    let offset = 44;
+    for (let i = 0; i < buffer.length; i++) {
+        for (let channel = 0; channel < channelCount; channel++) {
+            const sample = Math.max(-1, Math.min(1, channels[channel][i] || 0));
+            const pcm = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+            view.setInt16(offset, Math.round(pcm), true);
+            offset += bytesPerSample;
+        }
+    }
+
+    return new Blob([view], { type: 'audio/wav' });
+}
+
+function ensureVerseReplayUrl(verse) {
+    if (verse?.replayUrl) return verse.replayUrl;
+    if (!verse?.buffer) return null;
+    verse.replayUrl = URL.createObjectURL(audioBufferToWavBlob(verse.buffer));
+    return verse.replayUrl;
+}
+
+function getAudioBufferStats(buffer) {
+    if (!buffer?.length || !buffer.numberOfChannels) return { rms: 0, peak: 0 };
+    let sum = 0;
+    let peak = 0;
+    let count = 0;
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+        const data = buffer.getChannelData(channel);
+        for (let i = 0; i < data.length; i++) {
+            const sample = Math.abs(data[i] || 0);
+            sum += sample * sample;
+            if (sample > peak) peak = sample;
+            count += 1;
+        }
+    }
+    return { rms: count ? Math.sqrt(sum / count) : 0, peak };
+}
+
+function isProbablySilentAudio(buffer) {
+    const stats = getAudioBufferStats(buffer);
+    return stats.rms < 0.003 && stats.peak < 0.03;
 }
 
 function createMergedAudioBuffer(blocks) {
@@ -853,6 +1283,7 @@ function resetCurrentRecording() {
     state.audioBlocks = [];
     state.versePlan.forEach(verse => {
         if (verse.url) URL.revokeObjectURL(verse.url);
+        if (verse.replayUrl) URL.revokeObjectURL(verse.replayUrl);
     });
     state.versePlan = [];
     state.currentVerseIndex = 0;
@@ -1095,6 +1526,49 @@ async function initReviewerAudio() {
         renderCorrectionList(data.points);
         $('correctionCount').textContent = data.points.length;
     });
+
+    renderQuickCorrectionPresets();
+}
+
+function setReviewerVerdictSelection(verdict) {
+    $('verdictGroup')?.querySelectorAll('.verdict-card').forEach(card => {
+        card.classList.toggle('selected', card.dataset.verdict === verdict);
+    });
+    if (reviewer) reviewer.setVerdict(verdict);
+}
+
+function markReviewerChecklist(category) {
+    const checkbox = document.querySelector(`#checklist input[name="checklist_${CSS.escape(category)}"]`);
+    if (checkbox) checkbox.checked = true;
+    if (reviewer) reviewer.setChecklist(category, true);
+}
+
+function applyQuickCorrectionPreset(preset) {
+    if (!reviewer || !reviewerPlayer) {
+        showToast('Chargez une récitation avant de corriger', 'error');
+        return;
+    }
+    const time = reviewerPlayer.getCurrentTime();
+    reviewer.addPoint(time, preset.category, preset.comment);
+    markReviewerChecklist(preset.category);
+    setReviewerVerdictSelection('to_correct');
+    showToast(`${preset.label} ajouté à ${formatTime(time)}`);
+}
+
+function renderQuickCorrectionPresets() {
+    const bar = $('quickCorrectionBar');
+    if (!bar) return;
+    bar.replaceChildren();
+    QUICK_CORRECTION_PRESETS.forEach(preset => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `quick-correction-chip quick-correction-chip--${preset.category}`;
+        button.dataset.category = preset.category;
+        button.textContent = preset.label;
+        button.title = preset.comment;
+        button.addEventListener('click', () => applyQuickCorrectionPreset(preset));
+        bar.appendChild(button);
+    });
 }
 
 // ─── Correction list ───
@@ -1120,6 +1594,77 @@ function renderCorrectionList(points) {
     `).join('');
 }
 
+function categoryLabel(category) {
+    const labels = {
+        madd: 'Madd',
+        emphase: 'Emphase',
+        makhraj: 'Makhraj',
+        ghunnah: 'Ghunnah',
+        waqf: 'Waqf',
+        fluidite: 'Fluidité',
+    };
+    return labels[category] || category;
+}
+
+function findRecitationVerseAtTime(rec, time) {
+    const blocks = rec?.audioBlocks || rec?.versePlan || [];
+    let cursor = 0;
+    for (const block of blocks) {
+        const duration = Number(block.duration) || 0;
+        if (time >= cursor && time <= cursor + duration) return block;
+        cursor += duration;
+    }
+    return blocks[0] || null;
+}
+
+function buildRevisionPlan(rec) {
+    const points = rec?.correction?.points || [];
+    const today = new Date();
+    const categories = points.reduce((acc, point) => {
+        acc[point.category] = (acc[point.category] || 0) + 1;
+        return acc;
+    }, {});
+    const focus = Object.entries(categories)
+        .sort((a, b) => b[1] - a[1])
+        .map(([category, count]) => `${categoryLabel(category)} (${count})`);
+    const verseRefs = [...new Set(points.map(point => {
+        const verse = findRecitationVerseAtTime(rec, point.time);
+        return verse?.ayah ? `verset ${verse.ayah}` : formatTime(point.time);
+    }))].slice(0, 4);
+
+    if (!points.length) {
+        return [
+            { date: formatShortDate(today, 0), title: 'Consolidation', body: 'Relire la récitation complète une fois lentement, puis une fois au rythme normal.' },
+            { date: formatShortDate(today, 2), title: 'Rappel court', body: 'Réécouter votre enregistrement et vérifier la fluidité du passage.' },
+            { date: formatShortDate(today, 7), title: 'Révision espacée', body: 'Réciter la même plage sans regarder, puis comparer avec le modèle.' },
+        ];
+    }
+
+    const focusText = focus.length ? focus.join(', ') : 'points signalés';
+    const verseText = verseRefs.length ? verseRefs.join(', ') : 'les passages annotés';
+    return [
+        { date: formatShortDate(today, 0), title: 'Correction ciblée', body: `Reprendre ${verseText}. Objectif : ${focusText}.` },
+        { date: formatShortDate(today, 1), title: 'Répétition guidée', body: 'Réciter chaque passage corrigé 3 fois : lentement, normal, puis sans regarder la note.' },
+        { date: formatShortDate(today, 3), title: 'Réintégration', body: 'Réciter toute la plage en un seul enregistrement en gardant les corrections actives.' },
+        { date: formatShortDate(today, 7), title: 'Contrôle', body: 'Refaire une récitation complète et comparer avec la correction du professeur.' },
+    ];
+}
+
+function renderRevisionPlan(rec) {
+    const target = $('feedbackRevisionPlan');
+    if (!target) return;
+    const plan = buildRevisionPlan(rec);
+    target.innerHTML = plan.map((item, index) => `
+        <div class="revision-step">
+            <div class="revision-step__index">${index + 1}</div>
+            <div class="revision-step__body">
+                <div class="revision-step__title">${esc(item.title)} <span>${esc(item.date)}</span></div>
+                <div class="revision-step__text">${esc(item.body)}</div>
+            </div>
+        </div>
+    `).join('');
+}
+
 function renderFeedback(rec) {
     if (!rec) return;
     const correction = rec.correction || null;
@@ -1132,6 +1677,7 @@ function renderFeedback(rec) {
         $('feedbackComment').textContent = correction?.globalComment?.trim()
             || 'Le professeur n’a pas laissé de commentaire global.';
     }
+    renderRevisionPlan(rec);
 
     const pointsEl = $('feedbackPoints');
     if (!pointsEl) return;
@@ -1288,6 +1834,72 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnPtt = $('btnPttRecord');
     let isPttRecording = false;
 
+    const getMicrophoneErrorMessage = error => {
+        if (!window.isSecureContext) {
+            return "Micro indisponible : ouvrez l'app via localhost ou HTTPS.";
+        }
+        if (!navigator.mediaDevices?.getUserMedia) {
+            return "Micro indisponible dans ce navigateur.";
+        }
+        if (error?.name === 'NotAllowedError' || error?.name === 'SecurityError') {
+            return "Accès au micro refusé. Autorisez le micro dans les permissions du navigateur pour ce site.";
+        }
+        if (error?.name === 'NotFoundError' || error?.name === 'DevicesNotFoundError') {
+            return "Aucun micro détecté sur cet appareil.";
+        }
+        if (error?.name === 'NotReadableError' || error?.name === 'TrackStartError') {
+            return "Le micro est déjà utilisé ou bloqué par le système.";
+        }
+        return "Accès au microphone impossible. Vérifiez les permissions du navigateur.";
+    };
+
+    const getMicrophonePermissionState = async () => {
+        if (!navigator.permissions?.query) return null;
+        try {
+            return await navigator.permissions.query({ name: 'microphone' });
+        } catch (_) {
+            return null;
+        }
+    };
+
+    const getSelectedMicrophoneId = () => $('micDeviceSelect')?.value || '';
+
+    const refreshMicrophoneDevices = async () => {
+        const select = $('micDeviceSelect');
+        if (!select || !navigator.mediaDevices?.enumerateDevices) return;
+        try {
+            const currentValue = select.value;
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const microphones = devices.filter(device => device.kind === 'audioinput');
+            select.replaceChildren();
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = 'Micro par défaut';
+            select.appendChild(defaultOption);
+
+            microphones.forEach((device, index) => {
+                const option = document.createElement('option');
+                option.value = device.deviceId;
+                option.textContent = device.label || `Micro ${index + 1}`;
+                select.appendChild(option);
+            });
+
+            if ([...select.options].some(option => option.value === currentValue)) {
+                select.value = currentValue;
+            }
+        } catch (error) {
+            logError('microphone devices', error);
+        }
+    };
+
+    const formatRecordingStats = verse => {
+        const stats = verse?.audioStats;
+        const rms = stats ? Math.round(stats.rms * 10000) / 10000 : 0;
+        const peak = stats ? Math.round(stats.peak * 10000) / 10000 : 0;
+        const sizeKb = verse?.blob?.size ? Math.max(1, Math.round(verse.blob.size / 1024)) : 0;
+        return `taille ${sizeKb} Ko, signal ${rms}/${peak}`;
+    };
+
     const startPttRecord = async () => {
         if (isPttRecording) return;
         if (!getCurrentVerse()) {
@@ -1295,18 +1907,34 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         try {
-            await recorder.start();
+            const microphonePermission = await getMicrophonePermissionState();
+            if (microphonePermission?.state === 'denied') {
+                const permissionError = new Error('Microphone permission denied');
+                permissionError.name = 'NotAllowedError';
+                throw permissionError;
+            }
+            await recorder.start(getSelectedMicrophoneId());
+            await refreshMicrophoneDevices();
             isPttRecording = true;
+            startLearnerFollow(getCurrentVerse());
             if (btnPtt) btnPtt.style.background = 'var(--color-danger)';
             if (btnPtt) btnPtt.classList.add('recording');
             const pttStatus = $('pttStatus');
             if (pttStatus) {
-                pttStatus.textContent = "● Enregistrement en cours...";
+                const diagnostics = recorder.getDiagnostics();
+                const micName = diagnostics.trackLabel || 'micro sélectionné';
+                pttStatus.textContent = `● Enregistrement en cours avec : ${micName}`;
                 pttStatus.style.color = "var(--color-danger)";
             }
-        } catch(e) {
-            showToast('Accès au microphone refusé', 'error');
-            logError('audio', e);
+        } catch(error) {
+            const message = getMicrophoneErrorMessage(error);
+            showToast(message, 'error');
+            const pttStatus = $('pttStatus');
+            if (pttStatus) {
+                pttStatus.textContent = message;
+                pttStatus.style.color = "var(--color-danger)";
+            }
+            logError('audio', error);
         }
     };
 
@@ -1323,26 +1951,49 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const buffer = await loadAudioBuffer(blob);
         if (verse.url) URL.revokeObjectURL(verse.url);
+        if (verse.replayUrl) URL.revokeObjectURL(verse.replayUrl);
         verse.blob = blob;
         verse.buffer = buffer;
         verse.url = URL.createObjectURL(blob);
+        verse.replayUrl = null;
         verse.duration = buffer.duration;
+        verse.followTiming = buildRecitationTiming(verse.text || '', { durationMs: buffer.duration * 1000 });
+        verse.audioStats = getAudioBufferStats(buffer);
+        verse.isProbablySilent = isProbablySilentAudio(buffer);
 
         await rebuildAudioFromBlocks();
         renderVerseCards();
         updateVerseProgress();
 
+        if (verse.isProbablySilent) {
+            const pttStatus = $('pttStatus');
+            const diagnostics = recorder.getDiagnostics();
+            const micName = diagnostics.trackLabel || 'micro inconnu';
+            const message = `Enregistrement très faible ou muet (${formatRecordingStats(verse)}). Micro utilisé : ${micName}.`;
+            showToast(message, 'error');
+            if (pttStatus) {
+                pttStatus.textContent = message;
+                pttStatus.style.color = 'var(--color-danger)';
+            }
+        }
+
         if ($('optAutoAdvance')?.value === 'next') {
             const nextIndex = state.versePlan.findIndex((item, index) => index > state.currentVerseIndex && !item.buffer);
             if (nextIndex !== -1) selectVerseIndex(nextIndex);
         }
+
+        return verse;
     };
+
+    refreshMicrophoneDevices();
+    navigator.mediaDevices?.addEventListener?.('devicechange', refreshMicrophoneDevices);
 
     const stopPttRecord = async () => {
         if (!isPttRecording) return;
         if (recorder.isRecording()) {
             const { blob, durationMs } = await recorder.stop();
             isPttRecording = false;
+            stopLearnerFollow({ clear: false });
             if (btnPtt) btnPtt.style.background = '';
             if (btnPtt) btnPtt.classList.remove('recording');
             const pttStatus = $('pttStatus');
@@ -1351,10 +2002,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 pttStatus.style.color = "var(--color-gold)";
             }
             try {
-                await recordActiveVerse(blob, durationMs);
+                const recordedVerse = await recordActiveVerse(blob, durationMs);
                 const verse = getCurrentVerse();
-                if (pttStatus) pttStatus.textContent = verse ? `Verset ${verse.ayah} actif.` : "Verset enregistré.";
+                if (pttStatus && !recordedVerse?.isProbablySilent) {
+                    pttStatus.textContent = verse ? `Verset ${verse.ayah} actif.` : "Verset enregistré.";
+                    pttStatus.style.color = "var(--color-gold)";
+                }
             } catch (e) {
+                stopLearnerFollow({ clear: true });
                 const shortRecording = /trop court|vide/i.test(e?.message || '');
                 const message = shortRecording
                     ? e.message
@@ -1413,20 +2068,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             const center = container.getBoundingClientRect().left + container.getBoundingClientRect().width / 2;
             let closestIndex = state.currentVerseIndex;
             let closestDistance = Infinity;
-            cards.forEach((card, index) => {
+            cards.forEach(card => {
                 const rect = card.getBoundingClientRect();
                 const distance = Math.abs(rect.left + rect.width / 2 - center);
                 if (distance < closestDistance) {
                     closestDistance = distance;
-                    closestIndex = index;
+                    closestIndex = Number.parseInt(card.dataset.verseIndex, 10);
                 }
             });
-            if (closestIndex !== state.currentVerseIndex) {
+            if (Number.isInteger(closestIndex) && closestIndex !== state.currentVerseIndex) {
                 state.currentVerseIndex = closestIndex;
-                cards.forEach((card, index) => {
-                    card.classList.toggle('verse-record-card--active', index === closestIndex);
-                    const selectBtn = card.querySelector('.verse-record-card__actions .btn');
-                    if (selectBtn) selectBtn.textContent = index === closestIndex ? 'Actif' : 'Choisir';
+                cards.forEach(card => {
+                    const cardIndex = Number.parseInt(card.dataset.verseIndex, 10);
+                    card.classList.toggle('verse-record-card--active', cardIndex === closestIndex);
+                    const selectBtn = card.querySelector('.verse-record-card__select');
+                    if (selectBtn) selectBtn.textContent = cardIndex === closestIndex ? 'Actif' : 'Choisir';
                 });
                 updateVerseProgress();
                 const verse = getCurrentVerse();
@@ -1434,6 +2090,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }, 120);
     });
+
+    let verseTouchStart = null;
+    $('blocksContainer')?.addEventListener('touchstart', e => {
+        if (e.touches.length !== 1) return;
+        const touch = e.touches[0];
+        verseTouchStart = { x: touch.clientX, y: touch.clientY };
+    }, { passive: true });
+    $('blocksContainer')?.addEventListener('touchend', e => {
+        if (!verseTouchStart || !e.changedTouches.length) return;
+        const touch = e.changedTouches[0];
+        const dx = touch.clientX - verseTouchStart.x;
+        const dy = touch.clientY - verseTouchStart.y;
+        verseTouchStart = null;
+        if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.25) return;
+        selectVerseIndex(state.currentVerseIndex + (dx < 0 ? 1 : -1));
+    }, { passive: true });
 
     const isKeyboardEditingTarget = target => {
         const tag = target?.tagName;
@@ -1685,21 +2357,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // ── Quran display init ──
     quranDisplay = new QuranDisplay($('quranPanelContent'), $('quranPageLabel'));
+    renderQuickCorrectionPresets();
 
     // ── Charger le Coran automatiquement au changement de sélection ──
 
     const autoLoadQuran = async () => {
+        const token = ++quranLoadToken;
         if (!updateSelectionStateFromInputs()) {
             prepareVersePlanFromSelection({ preserve: false });
             return;
         }
 
+        const requestedSurahId = state.surahId;
+        const requestedFrom = state.ayahFrom;
+        const requestedTo = state.ayahTo;
+
         prepareVersePlanFromSelection({ preserve: true });
         await rebuildAudioFromBlocks();
+        if (token !== quranLoadToken) return;
         renderVerseCards();
         updateVerseProgress();
 
-        await quranDisplay.loadSurah(state.surahId, state.ayahFrom, state.ayahTo);
+        await quranDisplay.loadSurah(requestedSurahId, requestedFrom, requestedTo);
+        if (
+            token !== quranLoadToken
+            || state.surahId !== requestedSurahId
+            || state.ayahFrom !== requestedFrom
+            || state.ayahTo !== requestedTo
+        ) {
+            return;
+        }
         const loadedAyahs = typeof quranDisplay.getAyahs === 'function'
             ? quranDisplay.getAyahs()
             : (quranDisplay._ayahs || []);
@@ -1722,7 +2409,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if ($('ayahFrom')) $('ayahFrom').addEventListener('change', autoLoadQuran);
     if ($('ayahTo')) $('ayahTo').addEventListener('change', autoLoadQuran);
 
-    if (updateSelectionStateFromInputs()) {
+    const restoredLearnerSession = restoreLearnerSession();
+    if (restoredLearnerSession) {
+        await autoLoadQuran();
+    } else if (updateSelectionStateFromInputs()) {
         prepareVersePlanFromSelection({ preserve: true });
         updateVerseProgress();
     }
@@ -1794,6 +2484,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    if ($('followSpeed')) {
+        $('followSpeed').value = String(state.followSpeed);
+        updateLearnerFollowSpeed(state.followSpeed);
+        $('followSpeed').addEventListener('input', e => {
+            updateLearnerFollowSpeed(e.target.value);
+        });
+    }
+
     // ── Navigation page Coran ──
     if ($('btnQuranPrevPage')) {
         $('btnQuranPrevPage').addEventListener('click', async () => {
@@ -1862,6 +2560,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const cat = btn.dataset.category;
         const t   = reviewerPlayer.getCurrentTime();
         reviewer.addPoint(t, cat);
+        markReviewerChecklist(cat);
+        setReviewerVerdictSelection('to_correct');
         showToast(`Erreur ${cat} marquée à ${formatTime(t)}`);
     });
 
@@ -1909,9 +2609,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('verdictGroup').addEventListener('click', e => {
         const card = e.target.closest('.verdict-card');
         if (!card) return;
-        $('verdictGroup').querySelectorAll('.verdict-card').forEach(c => c.classList.remove('selected'));
-        card.classList.add('selected');
-        if (reviewer) reviewer.setVerdict(card.dataset.verdict);
+        setReviewerVerdictSelection(card.dataset.verdict);
     });
 
     // ── Export JSON ──

@@ -21,6 +21,8 @@ export class QuranDisplay {
         
         // Audio local pour la lecture par verset
         this._audio = new Audio();
+        this._audioToken = 0;
+        this._activeAudioButton = null;
         
         this._initEvents();
     }
@@ -57,15 +59,29 @@ export class QuranDisplay {
 
     _playVerse(verseNum, btn) {
         const url = `https://cdn.islamic.network/quran/audio/128/ar.alafasy/${verseNum}.mp3`;
+        const token = ++this._audioToken;
+        const playIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+        const pauseIcon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
         if (this._audio.src === url && !this._audio.paused) {
             this._audio.pause();
-            btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+            btn.innerHTML = playIcon;
         } else {
+            if (this._activeAudioButton && this._activeAudioButton !== btn) {
+                this._activeAudioButton.innerHTML = playIcon;
+            }
+            this._activeAudioButton = btn;
+            this._audio.pause();
             this._audio.src = url;
-            this._audio.play();
-            btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>';
+            const playPromise = this._audio.play();
+            if (playPromise) {
+                playPromise.catch(error => {
+                    if (error?.name !== 'AbortError') console.warn('[Qiraah] verse audio:', error);
+                    if (token === this._audioToken) btn.innerHTML = playIcon;
+                });
+            }
+            btn.innerHTML = pauseIcon;
             this._audio.onended = () => {
-                btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>';
+                if (token === this._audioToken) btn.innerHTML = playIcon;
             };
         }
     }
@@ -261,25 +277,49 @@ export class QuranDisplay {
         const pattern = /\[([a-zA-Z]+)(?::\d+)?\[([^\]]+)\]/g;
         let cursor = 0;
         let match;
+        let wordIndex = 0;
+        let currentWord = null;
 
-        const appendText = value => {
-            if (value) container.appendChild(document.createTextNode(value));
+        const closeWord = () => {
+            currentWord = null;
+        };
+
+        const ensureWord = () => {
+            if (!currentWord) {
+                currentWord = document.createElement('span');
+                currentWord.className = 'quran-word';
+                currentWord.dataset.word = String(wordIndex++);
+                container.appendChild(currentWord);
+            }
+            return currentWord;
+        };
+
+        const appendTextParts = value => {
+            value.split(/(\s+)/).forEach(part => {
+                if (!part) return;
+                if (/^\s+$/.test(part)) {
+                    closeWord();
+                    container.appendChild(document.createTextNode(part));
+                    return;
+                }
+                ensureWord().appendChild(document.createTextNode(part));
+            });
         };
 
         while ((match = pattern.exec(source)) !== null) {
-            appendText(source.slice(cursor, match.index));
+            appendTextParts(source.slice(cursor, match.index));
             if (showTajweed) {
                 const mark = document.createElement('tajweed');
                 mark.className = `tj-${match[1]}`;
                 mark.textContent = match[2];
-                container.appendChild(mark);
+                ensureWord().appendChild(mark);
             } else {
-                appendText(match[2]);
+                appendTextParts(match[2]);
             }
             cursor = pattern.lastIndex;
         }
 
-        appendText(source.slice(cursor));
+        appendTextParts(source.slice(cursor));
     }
 
     _render() {

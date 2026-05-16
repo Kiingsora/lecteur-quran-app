@@ -669,6 +669,43 @@ a:hover { color: var(--color-gold-light); }
 
 .category-btn--active { filter: brightness(1.2); box-shadow: 0 0 12px currentColor; opacity: 1; }
 
+.quick-correction {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: var(--border-subtle);
+}
+
+.quick-correction__label {
+  margin-bottom: var(--space-xs);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.quick-correction__bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.quick-correction-chip {
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  border: var(--border-panel);
+  background: rgba(255,255,255,0.03);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast);
+}
+
+.quick-correction-chip:hover {
+  transform: translateY(-1px);
+  border-color: var(--color-gold-dim);
+  background: rgba(212,168,71,0.08);
+}
+
 /* ============================================
    Correction points list
    ============================================ */
@@ -1212,6 +1249,10 @@ input[type="range"]::-moz-range-thumb {
   text-underline-offset: 3px;
 }
 
+.quran-word--upcoming {
+  color: rgba(245, 238, 222, 0.48);
+}
+
 /* Séparateur de verset */
 .quran-verse-num {
   display: inline-flex;
@@ -1679,6 +1720,11 @@ tajweed.tj-h, tajweed.tj-l, tajweed.tj-s { color: #8f9296; opacity: 0.7; }
   background: linear-gradient(135deg, rgba(64,145,108,0.12), var(--color-bg-main) 55%);
 }
 
+.verse-record-card--following {
+  border-color: var(--color-gold);
+  box-shadow: 0 0 0 1px rgba(212,168,71,0.24), var(--shadow-gold);
+}
+
 .verse-record-card__header,
 .verse-record-card__actions {
   display: flex;
@@ -1706,12 +1752,28 @@ tajweed.tj-h, tajweed.tj-l, tajweed.tj-s { color: #8f9296; opacity: 0.7; }
   color: var(--color-success);
 }
 
+.verse-record-card__mobile-nav {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.verse-record-card__mobile-nav .btn {
+  width: 34px;
+  height: 30px;
+}
+
 .verse-record-card__arabic {
   flex: 1;
   min-height: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
+  gap: 0 var(--space-xs);
   text-align: center;
   direction: rtl;
   color: var(--color-text);
@@ -1730,13 +1792,23 @@ tajweed.tj-h, tajweed.tj-l, tajweed.tj-s { color: #8f9296; opacity: 0.7; }
 }
 
 .verse-record-card__recording {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
   min-height: 38px;
 }
 
-.verse-record-card__recording audio {
-  width: 100%;
+.verse-record-card__replay.is-playing {
+  border-color: var(--color-gold);
+  color: var(--color-gold-light);
+}
+
+.verse-record-card__replay {
+  font-weight: 700;
 }
 
 .recording-dock {
@@ -1809,6 +1881,58 @@ tajweed.tj-h, tajweed.tj-l, tajweed.tj-s { color: #8f9296; opacity: 0.7; }
   line-height: 1.6;
 }
 
+.revision-plan {
+  display: grid;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+}
+
+.revision-step {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: var(--space-sm);
+  align-items: start;
+  padding: var(--space-sm);
+  border: var(--border-panel);
+  border-radius: var(--radius-md);
+  background: rgba(255,255,255,0.02);
+}
+
+.revision-step__index {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(212,168,71,0.14);
+  color: var(--color-gold);
+  font-weight: 700;
+  font-size: var(--font-size-xs);
+}
+
+.revision-step__title {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.revision-step__title span {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+}
+
+.revision-step__text {
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.45;
+}
+
 body[data-mode="learner"] {
   height: 100dvh;
   overflow: hidden;
@@ -1819,18 +1943,31 @@ body[data-mode="learner"] .header {
   flex-shrink: 0;
 }
 
+body[data-mode="learner"] > .app-layout {
+  flex: 1;
+  min-height: 0;
+  height: calc(100dvh - var(--header-height));
+  align-items: stretch;
+}
+
 body[data-mode="learner"] .main-content {
+  height: 100%;
+  min-height: 0;
   padding: 0;
   gap: 0;
   overflow: hidden;
 }
 
 body[data-mode="learner"] #viewLearner {
+  display: flex !important;
   flex: 1;
+  height: 100%;
   min-height: 0;
 }
 
 #viewLearner > .app-layout {
+  flex: 1;
+  min-height: 0;
   height: 100%;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -1917,12 +2054,36 @@ body[data-mode="learner"] #viewLearner {
   font-size: 1rem;
 }
 
+.learner-follow-controls {
+  display: inline-grid;
+  grid-template-columns: auto 82px 34px;
+  align-items: center;
+  gap: 6px;
+  margin-left: var(--space-xs);
+  padding-left: var(--space-xs);
+  border-left: var(--border-subtle);
+}
+
+.learner-follow-controls label,
+.learner-follow-controls span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+.learner-follow-controls input[type="range"] {
+  width: 82px;
+  padding: 0;
+  accent-color: var(--color-gold);
+}
+
 #viewLearner .quran-options-toolbar,
 #viewLearner #quranPanelContent {
   display: none;
 }
 
 #viewLearner .learner-recording-panel {
+  align-self: stretch;
   min-height: 0;
   height: 100%;
   width: min(100%, 1080px);
@@ -2023,6 +2184,7 @@ body[data-mode="learner"] #viewLearner {
 }
 
 #viewLearner .recording-dock {
+  align-self: end;
   order: 3;
   position: static;
   width: min(100%, 880px);
@@ -2053,6 +2215,45 @@ body[data-mode="learner"] #viewLearner {
 #viewLearner .recording-dock #pttStatus {
   font-size: var(--font-size-xs);
   line-height: 1.35;
+}
+
+#viewLearner .recording-dock__status {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+#viewLearner .recording-dock__status-text {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+#viewLearner .recording-mic-select {
+  width: min(100%, 320px);
+  min-height: 28px;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+}
+
+#viewLearner .recording-level {
+  width: 8px;
+  height: 54px;
+  border: 1px solid rgba(212, 168, 71, 0.28);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.26);
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+#viewLearner .recording-level__fill {
+  width: 100%;
+  height: 0%;
+  background: linear-gradient(to top, var(--color-gold), var(--color-danger));
+  transition: height 90ms linear;
 }
 
 #viewLearner #panelSubmit {
@@ -2094,6 +2295,10 @@ body[data-mode="learner"] #viewLearner {
     font-size: 0.72rem;
   }
 
+  body[data-mode="learner"] > .app-layout {
+    height: calc(100dvh - 56px);
+  }
+
   #viewLearner > .app-layout {
     padding: var(--space-xs);
     gap: var(--space-xs);
@@ -2122,7 +2327,7 @@ body[data-mode="learner"] #viewLearner {
     padding-bottom: 0;
   }
 
-  .learner-font-controls span {
+  .learner-font-controls > span {
     display: none;
   }
 
@@ -2130,6 +2335,20 @@ body[data-mode="learner"] #viewLearner {
     min-width: 34px;
     height: 34px;
     padding: 0 7px;
+  }
+
+  .learner-follow-controls {
+    grid-template-columns: 58px 28px;
+    margin-left: 2px;
+    padding-left: 4px;
+  }
+
+  .learner-follow-controls label {
+    display: none;
+  }
+
+  .learner-follow-controls input[type="range"] {
+    width: 58px;
   }
 
   #viewLearner .surah-selector .form-input {
@@ -2164,6 +2383,10 @@ body[data-mode="learner"] #viewLearner {
   #viewLearner .verse-record-card__header,
   #viewLearner .verse-record-card__actions {
     gap: var(--space-xs);
+  }
+
+  #viewLearner .verse-record-card__mobile-nav {
+    display: flex;
   }
 
   #viewLearner .verse-record-card__arabic {
@@ -2202,6 +2425,10 @@ body[data-mode="learner"] #viewLearner {
   }
 
   #viewLearner .recording-dock #pttStatus {
+    grid-area: status;
+  }
+
+  #viewLearner .recording-dock__status {
     grid-area: status;
   }
 }
